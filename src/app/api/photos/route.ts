@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { unlink } from 'fs/promises';
 import { put, del } from '@vercel/blob';
 
+// Esta versão usa Vercel Blob Storage para resolver o erro EROFS: read-only file system
+// Nota: Nenhuma alteração no sistema de arquivos é feita neste código
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
