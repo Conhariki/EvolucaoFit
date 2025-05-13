@@ -264,8 +264,52 @@ export default function PhotosPage() {
 
   // Função para formatar data para exibição (pt-BR)
   const formatDateDisplay = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
+    try {
+      // Verificar se a string é válida
+      if (!dateString) {
+        console.error('Data indefinida recebida em formatDateDisplay:', dateString);
+        return '';
+      }
+      
+      // Para datas ISO strings (do banco de dados)
+      if (dateString.includes('T')) {
+        // Usar UTC para evitar problemas de fuso horário
+        const parts = dateString.split('T')[0].split('-');
+        if (parts.length === 3) {
+          const [year, month, day] = parts;
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Para datas no formato YYYY-MM-DD
+      if (dateString.includes('-')) {
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          const [year, month, day] = parts;
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Para datas que já estão no formato DD/MM/YYYY
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          return dateString;
+        }
+      }
+      
+      // Tentar criar um objeto Date como última opção
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('pt-BR');
+      }
+      
+      console.error('Formato de data não reconhecido em formatDateDisplay:', dateString);
+      return '';
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, dateString);
+      return '';
+    }
   };
 
   // Agrupa as fotos por data ISO e tipo
@@ -275,9 +319,9 @@ export default function PhotosPage() {
     if (!photosByDateAndAngle[dateIso]) photosByDateAndAngle[dateIso] = {};
     photosByDateAndAngle[dateIso][photo.angle] = photo;
   });
-  // Ordena as datas do menor para o maior, incluindo extras (todas em ISO)
+  // Ordena as datas do mais recente para o mais antigo
   const allDates = Array.from(new Set([...Object.keys(photosByDateAndAngle), ...extraDates]));
-  const sortedDates = allDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const sortedDates = allDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   // Gerar lista de meses/anos únicos presentes nas datas
   const allMonthYears = Array.from(new Set(sortedDates.map(dateIso => {
     const [year, month] = dateIso.split('-');
@@ -473,27 +517,120 @@ export default function PhotosPage() {
 
   // Função para deletar todas as fotos de uma data
   const handleDeleteDate = async (date: string) => {
-    // Verifica se existe pelo menos uma foto para a data
+    if (!date) return;
+    
+    console.log('Tentando excluir data:', date);
+    
+    // Verificar se a data está no formato DD/MM/YYYY ou YYYY-MM-DD
+    let formattedDate = date;
+    if (date.includes('/')) {
+      // Converter de DD/MM/YYYY para YYYY-MM-DD
+      const [day, month, year] = date.split('/');
+      formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    console.log('Data formatada para exclusão:', formattedDate);
+    
+    // Verificar se existe pelo menos uma foto para a data
     const hasPhoto = (photos as Photo[]).some((p: Photo) => {
-      const d = formatDateDisplay(p.date);
-      return d === date;
+      const photoDate = new Date(p.date);
+      const dateToCheck = new Date(formattedDate);
+      
+      console.log('Comparando datas:', {
+        photoDate: photoDate.toISOString().split('T')[0],
+        dateToCheck: dateToCheck.toISOString().split('T')[0],
+        isMatch: photoDate.toISOString().split('T')[0] === dateToCheck.toISOString().split('T')[0]
+      });
+      
+      return photoDate.toISOString().split('T')[0] === dateToCheck.toISOString().split('T')[0];
     });
+    
+    console.log('Tem fotos nesta data?', hasPhoto);
+    
     if (!hasPhoto) {
       // Data extra (sem fotos no backend)
-      setExtraDates(prev => prev.filter(d => d !== date));
-      setSelectedDates(prev => prev.filter(d => d !== date));
+      console.log('Removendo data extra (sem fotos):', formattedDate);
+      setExtraDates(prev => prev.filter(d => {
+        const normalizedD = d.includes('T') ? d.split('T')[0] : d;
+        const normalizedFormattedDate = formattedDate.includes('T') ? formattedDate.split('T')[0] : formattedDate;
+        console.log('Comparando:', normalizedD, normalizedFormattedDate);
+        return normalizedD !== normalizedFormattedDate;
+      }));
+      setSelectedDates(prev => prev.filter(d => {
+        const normalizedD = d.includes('T') ? d.split('T')[0] : d;
+        const normalizedFormattedDate = formattedDate.includes('T') ? formattedDate.split('T')[0] : formattedDate;
+        return normalizedD !== normalizedFormattedDate;
+      }));
       toast({ title: 'Sucesso', description: 'Data removida', status: 'success', duration: 3000, isClosable: true });
       setDeleteDate(null);
       return;
     }
+    
     try {
-      await axios.delete(`/api/photos?date=${encodeURIComponent(date)}`);
-      mutate();
-      setSelectedDates(prev => prev.filter(d => d !== date));
-      toast({ title: 'Sucesso', description: 'Fotos da data excluídas', status: 'success', duration: 3000, isClosable: true });
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível excluir as fotos da data', status: 'error', duration: 3000, isClosable: true });
+      console.log('Excluindo fotos da data:', formattedDate);
+      
+      // Encontrar todas as fotos desta data para excluir uma a uma
+      const photosToDelete = (photos as Photo[]).filter(p => {
+        const photoDate = new Date(p.date);
+        const dateToCheck = new Date(formattedDate);
+        return photoDate.toISOString().split('T')[0] === dateToCheck.toISOString().split('T')[0];
+      });
+      
+      console.log(`Encontradas ${photosToDelete.length} fotos para excluir`);
+      
+      if (photosToDelete.length === 0) {
+        toast({ 
+          title: 'Aviso', 
+          description: 'Não há fotos para excluir nesta data', 
+          status: 'warning', 
+          duration: 3000, 
+          isClosable: true 
+        });
+        setDeleteDate(null);
+        return;
+      }
+      
+      // Excluir foto por foto ao invés de tentar excluir por data
+      let successCount = 0;
+      for (const photo of photosToDelete) {
+        try {
+          await axios.delete(`/api/photos?id=${photo.id}`, {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+          });
+          successCount++;
+        } catch (error) {
+          console.error(`Erro ao excluir foto ID ${photo.id}:`, error);
+        }
+      }
+      
+      // Recarregar os dados
+      await mutate();
+      
+      setSelectedDates(prev => prev.filter(d => {
+        const normalizedD = d.includes('T') ? d.split('T')[0] : d;
+        const normalizedFormattedDate = formattedDate.includes('T') ? formattedDate.split('T')[0] : formattedDate;
+        return normalizedD !== normalizedFormattedDate;
+      }));
+      
+      toast({ 
+        title: 'Sucesso', 
+        description: `${successCount} de ${photosToDelete.length} fotos excluídas`, 
+        status: 'success', 
+        duration: 3000, 
+        isClosable: true 
+      });
+    } catch (error) {
+      console.error('Erro ao excluir fotos da data:', error);
+      toast({ 
+        title: 'Erro', 
+        description: 'Não foi possível excluir as fotos da data', 
+        status: 'error', 
+        duration: 3000, 
+        isClosable: true 
+      });
     }
+    
     setDeleteDate(null);
   };
 
@@ -532,8 +669,9 @@ export default function PhotosPage() {
       formData.append('angle', editColumnDateModal.oldDate.split('-')[2]);
       // Corrigir fuso horário aqui:
       const [year, month, day] = editColumnDateModal.newDate.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-      formData.append('date', dateObj.toISOString());
+      // Usar formato fixo para evitar problemas de fuso horário
+      const isoDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T12:00:00.000Z`;
+      formData.append('date', isoDate);
       formData.append('id', editColumnDateModal.oldDate.split('-')[2]);
       await axios.put('/api/photos', formData);
       toast({ title: 'Data da foto atualizada', status: 'success', duration: 3000, isClosable: true });
@@ -558,12 +696,11 @@ export default function PhotosPage() {
         return;
       }
 
-      // Se não tiver data selecionada, usar a data da coluna
-      const dateToUse = selectedDate;
-      if (!dateToUse) {
+      // Se não tiver data selecionada
+      if (!selectedDate) {
         toast({
           title: 'Erro',
-          description: 'Data não selecionada',
+          description: 'Data não selecionada. Por favor, selecione uma data.',
           status: 'error',
           duration: 3000,
           isClosable: true,
@@ -571,34 +708,57 @@ export default function PhotosPage() {
         return;
       }
 
-      // Garantir que a data está em formato válido e ajustar para UTC meio-dia para evitar problemas de fuso horário
-      const [year, month, day] = dateToUse.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-      if (isNaN(dateObj.getTime())) {
-        toast({
-          title: 'Erro',
-          description: 'Data inválida. Por favor, selecione uma data válida.',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
+      console.log('Data para upload:', selectedDate);
+      
+      // Cria um objeto Date a partir da data selecionada (que está no formato YYYY-MM-DD)
+      // e ajusta para o fuso horário local (mesmo método usado na tela de medições)
+      const selectedDateObj = new Date(selectedDate);
+      
+      // Esta linha garante que a data será interpretada no fuso horário local
+      // Usamos 12:00 para meio-dia para evitar problemas com horário de verão
+      const localDate = new Date(
+        selectedDateObj.getFullYear(),
+        selectedDateObj.getMonth(),
+        selectedDateObj.getDate(),
+        12, 0, 0
+      );
+      
+      // ISO String será interpretada como UTC pelo servidor
+      const isoDate = localDate.toISOString();
+      
+      console.log('Data ISO para o servidor:', isoDate);
+      console.log('Data local formatada:', localDate.toLocaleDateString('pt-BR'));
 
       const formData = new FormData();
       formData.append('file', file);
       formData.append('angle', angle);
-      formData.append('date', dateObj.toISOString());
+      formData.append('date', isoDate);
 
       // Se já existe foto para o ângulo/data, faz update, senão faz upload novo
       const existing = (photos as Photo[]).find((p: Photo) => {
         const photoDate = new Date(p.date);
-        const uploadDate = dateObj;
-        return photoDate.toDateString() === uploadDate.toDateString() && p.angle === angle;
+        // Comparar apenas ano, mês e dia (ignorando horas)
+        const photoIsSameDate = 
+          photoDate.getFullYear() === localDate.getFullYear() &&
+          photoDate.getMonth() === localDate.getMonth() &&
+          photoDate.getDate() === localDate.getDate();
+        
+        const match = photoIsSameDate && p.angle === angle;
+        
+        console.log('Comparando com foto existente:', {
+          photo: p.id,
+          date: p.date,
+          photoDate: photoDate.toLocaleDateString('pt-BR'),
+          angle: p.angle,
+          match
+        });
+        
+        return match;
       });
 
       if (existing) {
         // Update (PUT)
+        console.log('Atualizando foto existente:', existing.id);
         formData.append('id', existing.id);
         await axios.put('/api/photos', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -613,6 +773,7 @@ export default function PhotosPage() {
         });
       } else {
         // Novo upload (POST)
+        console.log('Criando nova foto');
         await axios.post('/api/photos', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           withCredentials: true,
@@ -673,28 +834,151 @@ export default function PhotosPage() {
   const handleSaveColumnDate = async () => {
     if (!editColumnDateModal.oldDate || !editColumnDateModal.newDate) return;
     try {
-      // Encontrar todas as fotos daquela data
-      const fotosAntigas = (photos as Photo[]).filter(p => formatDateDisplay(p.date) === editColumnDateModal.oldDate);
-      for (const foto of fotosAntigas) {
-        // Buscar a imagem original
-        const response = await fetch(foto.url);
-        const blob = await response.blob();
-        const file = new File([blob], 'original.jpg', { type: 'image/jpeg' });
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('angle', foto.angle);
-        // Corrigir fuso horário aqui:
-        const [year, month, day] = editColumnDateModal.newDate.split('-').map(Number);
-        const dateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-        formData.append('date', dateObj.toISOString());
-        formData.append('id', foto.id);
-        await axios.put('/api/photos', formData);
+      setActionLoading(true);
+      console.log('Alterando data da coluna:', {
+        antigaData: editColumnDateModal.oldDate,
+        novaData: editColumnDateModal.newDate
+      });
+      
+      // Converter a data antiga de DD/MM/YYYY para YYYY-MM-DD
+      let oldDateIso = editColumnDateModal.oldDate;
+      if (editColumnDateModal.oldDate.includes('/')) {
+        const [day, month, year] = editColumnDateModal.oldDate.split('/');
+        oldDateIso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
-      toast({ title: 'Data da coluna atualizada', status: 'success', duration: 3000, isClosable: true });
+      
+      console.log('Data antiga normalizada:', oldDateIso);
+      
+      // Encontrar todas as fotos daquela data
+      const fotosAntigas = (photos as Photo[]).filter(p => {
+        // Normalizar as datas para comparação (apenas ano-mês-dia)
+        const photoDateObj = new Date(p.date);
+        const photoDateIso = photoDateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+        const oldDateToCompare = oldDateIso.split('T')[0]; // Garantir formato YYYY-MM-DD
+        
+        console.log('Comparando datas:', {
+          photoDate: p.date,
+          photoDateIso,
+          oldDateIso,
+          oldDateToCompare,
+          isMatch: photoDateIso === oldDateToCompare
+        });
+        
+        return photoDateIso === oldDateToCompare;
+      });
+      
+      console.log('Fotos encontradas para alterar:', fotosAntigas.length);
+      
+      if (fotosAntigas.length === 0) {
+        toast({ 
+          title: 'Aviso', 
+          description: 'Não foram encontradas fotos para esta data.', 
+          status: 'warning', 
+          duration: 3000, 
+          isClosable: true 
+        });
+        setActionLoading(false);
+        return;
+      }
+      
+      let successCount = 0;
+      for (const foto of fotosAntigas) {
+        try {
+          // Buscar a imagem original
+          const response = await fetch(foto.url);
+          const blob = await response.blob();
+          const file = new File([blob], 'original.jpg', { type: 'image/jpeg' });
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('angle', foto.angle);
+          
+          // Criar data a partir de editColumnDateModal.newDate (formato YYYY-MM-DD)
+          const [year, month, day] = editColumnDateModal.newDate.split('-').map(Number);
+          
+          // Criar um objeto Date no fuso horário local com horário meio-dia
+          const newDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+          const isoDate = newDate.toISOString();
+          
+          console.log(`Atualizando foto ${foto.id} de ${foto.date} para ${isoDate}`);
+          
+          formData.append('date', isoDate);
+          formData.append('id', foto.id);
+          
+          // Enviar para o servidor
+          const result = await axios.put('/api/photos', formData);
+          console.log('Resultado da atualização:', result.data);
+          successCount++;
+        } catch (error) {
+          console.error(`Erro ao atualizar foto ID ${foto.id}:`, error);
+        }
+      }
+      
+      toast({ 
+        title: 'Data da coluna atualizada', 
+        description: `${successCount} de ${fotosAntigas.length} fotos atualizadas para ${new Date(editColumnDateModal.newDate+'T12:00:00Z').toLocaleDateString('pt-BR')}`, 
+        status: 'success', 
+        duration: 3000, 
+        isClosable: true 
+      });
+      
       setEditColumnDateModal({ oldDate: null, newDate: '' });
-      mutate();
+      mutate(); // Recarregar os dados
     } catch (error) {
-      toast({ title: 'Erro ao atualizar data da coluna', status: 'error', duration: 3000, isClosable: true });
+      console.error('Erro ao atualizar data da coluna:', error);
+      toast({ 
+        title: 'Erro ao atualizar data da coluna', 
+        description: 'Ocorreu um erro ao atualizar a data das fotos.', 
+        status: 'error', 
+        duration: 3000, 
+        isClosable: true 
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Função para normalizar a data para comparação
+  const normalizeDateForComparison = (dateString: string) => {
+    try {
+      // Verificar se a string de data não é undefined ou null
+      if (!dateString) {
+        console.error('Data indefinida recebida:', dateString);
+        return '';
+      }
+      
+      // Para datas ISO (com 'T')
+      if (dateString.includes('T')) {
+        return dateString.split('T')[0]; // Retorna YYYY-MM-DD
+      }
+      
+      // Para datas com formato DD/MM/YYYY
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+      }
+      
+      // Para datas já no formato YYYY-MM-DD
+      if (dateString.includes('-')) {
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          return dateString; // Já está no formato correto
+        }
+      }
+      
+      // Tentar criar um objeto Date como última opção
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+      
+      console.error('Formato de data não reconhecido:', dateString);
+      return '';
+    } catch (error) {
+      console.error('Erro ao normalizar data:', error, dateString);
+      return '';
     }
   };
 
@@ -797,18 +1081,69 @@ export default function PhotosPage() {
               type="date"
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
+              title="Selecione uma data no formato YYYY-MM-DD"
+              placeholder="YYYY-MM-DD"
             />
+            <Text fontSize="xs" color="gray.500" mt={1}>
+              Formato esperado: AAAA-MM-DD
+            </Text>
           </FormControl>
           <Button
             colorScheme="teal"
             ml={2}
             alignSelf="flex-end"
             onClick={() => {
-              if (!selectedDate) return;
-              const [year, month, day] = selectedDate.split('-');
-              const formatted = `${day}/${month}/${year}`;
+              // Validar se uma data foi selecionada
+              if (!selectedDate) {
+                toast({
+                  title: 'Erro',
+                  description: 'Por favor, selecione uma data primeiro.',
+                  status: 'error',
+                  duration: 3000,
+                  isClosable: true,
+                });
+                return;
+              }
+              
+              console.log('Data selecionada original:', selectedDate);
+              
+              // Criar data a partir da string no formato YYYY-MM-DD, mas com UTC+0
+              // Para evitar problemas de fuso horário, vamos criar a data diretamente
+              const [year, month, day] = selectedDate.split('-').map(Number);
+              
+              // Criar um objeto Date com o dia correto (sem perder um dia)
+              // Usando o construtor Date(year, month-1, day) com mês 0-based
+              const dateObj = new Date(Date.UTC(year, month - 1, day));
+              
+              console.log('Data UTC criada:', dateObj.toISOString());
+              console.log('Data local:', dateObj.toLocaleDateString('pt-BR'));
+              
+              // Garantir que seja meio-dia para evitar problemas de fuso
+              dateObj.setUTCHours(12, 0, 0, 0);
+              
+              // Formatar como YYYY-MM-DD para armazenamento interno
+              const formatted = dateObj.toISOString().split('T')[0];
+              
+              console.log('Data formatada para armazenamento:', formatted);
+              console.log('Data para exibição:', new Date(formatted).toLocaleDateString('pt-BR'));
+              
               if (!sortedDates.includes(formatted) && !extraDates.includes(formatted)) {
                 setExtraDates(prev => [...prev, formatted]);
+                toast({
+                  title: 'Sucesso',
+                  description: `Data adicionada: ${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`,
+                  status: 'success',
+                  duration: 3000,
+                  isClosable: true,
+                });
+              } else {
+                toast({
+                  title: 'Aviso',
+                  description: 'Esta data já existe na lista.',
+                  status: 'warning',
+                  duration: 3000,
+                  isClosable: true,
+                });
               }
               setSelectedDate('');
             }}
@@ -991,8 +1326,23 @@ export default function PhotosPage() {
                         variant="ghost"
                         isRound
                         onClick={() => {
-                          const [day, month, year] = date.split('/');
-                          setEditColumnDateModal({ oldDate: date, newDate: `${year}-${month}-${day}` });
+                          console.log('Clicou para editar a data:', date);
+                          
+                          // Converter data para formato que o input date aceita (YYYY-MM-DD)
+                          let formattedDate = date;
+                          if (date.includes('/')) {
+                            // Converter de DD/MM/YYYY para YYYY-MM-DD
+                            const [day, month, year] = date.split('/');
+                            formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                          }
+                          
+                          console.log('Data formatada para edição:', formattedDate);
+                          
+                          // Definir a data antiga (para referência) e a nova (inicialmente igual à antiga)
+                          setEditColumnDateModal({ 
+                            oldDate: date, 
+                            newDate: formattedDate 
+                          });
                         }}
                       />
                     </Tooltip>
@@ -1075,12 +1425,12 @@ export default function PhotosPage() {
           </AlertDialogContent>
         </AlertDialog>
         {/* Modal de crop sempre presente */}
-      <Modal isOpen={cropModalOpen} onClose={() => setCropModalOpen(false)} size="xl" isCentered>
-        <ModalOverlay />
-        <ModalContent>
+        <Modal isOpen={cropModalOpen} onClose={() => setCropModalOpen(false)} size="xl" isCentered>
+          <ModalOverlay />
+          <ModalContent>
             <ModalHeader>Recorte a imagem (opcional)</ModalHeader>
             <ModalCloseButton />
-          <ModalBody>
+            <ModalBody>
               {cropImage ? (
                 <ReactCrop
                   crop={crop}
@@ -1113,10 +1463,10 @@ export default function PhotosPage() {
                   <Text color="gray.500">
                     Pressione <b>Ctrl+V</b> para colar uma imagem do clipboard
                   </Text>
-              </Box>
-            )}
-          </ModalBody>
-          <ModalFooter>
+                </Box>
+              )}
+            </ModalBody>
+            <ModalFooter>
               {cropImage && (
                 <Button 
                   colorScheme="blue" 
@@ -1197,43 +1547,59 @@ export default function PhotosPage() {
             <ModalHeader>Editar Data da Coluna</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <FormControl>
-                <FormLabel>Nova Data</FormLabel>
-                <Input
-                  type="date"
-                  value={editColumnDateModal.newDate}
-                  onChange={e => setEditColumnDateModal(modal => ({ ...modal, newDate: e.target.value }))}
-                />
-              </FormControl>
+              <VStack spacing={4} align="stretch">
+                <Box>
+                  <Text fontWeight="bold" mb={1}>Data Atual:</Text>
+                  <Text>{editColumnDateModal.oldDate}</Text>
+                </Box>
+                <Divider />
+                <FormControl>
+                  <FormLabel>Nova Data</FormLabel>
+                  <Input
+                    type="date"
+                    value={editColumnDateModal.newDate}
+                    onChange={e => setEditColumnDateModal(prev => ({ ...prev, newDate: e.target.value }))}
+                  />
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    Formato esperado: AAAA-MM-DD
+                  </Text>
+                </FormControl>
+              </VStack>
             </ModalBody>
             <ModalFooter>
-              <Button colorScheme="blue" mr={3} onClick={handleSaveColumnDate}>
+              <Button 
+                colorScheme="blue" 
+                mr={3} 
+                onClick={handleSaveColumnDate}
+                isDisabled={!editColumnDateModal.newDate || editColumnDateModal.newDate === ''}
+                isLoading={actionLoading}
+              >
                 Salvar
               </Button>
               <Button variant="ghost" onClick={() => setEditColumnDateModal({ oldDate: null, newDate: '' })}>
                 Cancelar
               </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      {/* Spinner global para ações de upload/delete */}
-      {actionLoading && (
-        <Flex position="fixed" top={0} left={0} w="100vw" h="100vh" align="center" justify="center" zIndex={2000} bg="rgba(0,0,0,0.2)">
-          <Spinner size="xl" color="teal.400" thickness="4px" />
-        </Flex>
-      )}
-      {/* Modal de zoom da foto */}
-      <Modal isOpen={zoomModal.open} onClose={() => setZoomModal({ open: false, url: null })} size="2xl" isCentered>
-        <ModalOverlay />
-        <ModalContent bg={useColorModeValue('white', 'gray.900')}>
-          <ModalCloseButton />
-          <ModalBody display="flex" alignItems="center" justifyContent="center" p={4}>
-            {zoomModal.url && (
-              <Image src={zoomModal.url} alt="Zoom da foto" maxH="70vh" maxW="100%" borderRadius="lg" />
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+        {/* Spinner global para ações de upload/delete */}
+        {actionLoading && (
+          <Flex position="fixed" top={0} left={0} w="100vw" h="100vh" align="center" justify="center" zIndex={2000} bg="rgba(0,0,0,0.2)">
+            <Spinner size="xl" color="teal.400" thickness="4px" />
+          </Flex>
+        )}
+        {/* Modal de zoom da foto */}
+        <Modal isOpen={zoomModal.open} onClose={() => setZoomModal({ open: false, url: null })} size="2xl" isCentered>
+          <ModalOverlay />
+          <ModalContent bg={useColorModeValue('white', 'gray.900')}>
+            <ModalCloseButton />
+            <ModalBody display="flex" alignItems="center" justifyContent="center" p={4}>
+              {zoomModal.url && (
+                <Image src={zoomModal.url} alt="Zoom da foto" maxH="70vh" maxW="100%" borderRadius="lg" />
+              )}
+            </ModalBody>
+          </ModalContent>
+        </Modal>
       </VStack>
     </Container>
   );

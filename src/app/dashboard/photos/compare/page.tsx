@@ -50,16 +50,54 @@ export default function ComparePhotosPage() {
 
   // Função para exibir data formatada
   const formatDateDisplay = (dateIso: string) => {
-    const date = new Date(dateIso);
-    return date.toLocaleDateString('pt-BR');
+    try {
+      // Verificar se a data é válida antes de prosseguir
+      if (!dateIso) {
+        console.warn('Data inválida recebida em formatDateDisplay:', dateIso);
+        return '';
+      }
+      
+      // Extrair apenas a parte da data (YYYY-MM-DD)
+      const datePart = dateIso.split('T')[0];
+      
+      // Criar a data usando o construtor de Data com UTC
+      // Isso evita problemas de fuso horário que podem alterar o dia
+      const [year, month, day] = datePart.split('-').map(Number);
+      
+      // Criar a data com UTC e definir meio-dia para evitar problemas de fuso
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      
+      console.log('Formatando data:', {
+        original: dateIso,
+        datePart,
+        components: [year, month, day],
+        resultado: date.toLocaleDateString('pt-BR')
+      });
+      
+      return date.toLocaleDateString('pt-BR');
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, dateIso);
+      return '';
+    }
   };
 
   function getPesoByDate(dateIso: string) {
+    // Extrair apenas a parte da data (YYYY-MM-DD) para comparação
+    const datePart = dateIso.split('T')[0];
+    
     const medida = measurements.find((m: any) => {
-      const d = new Date(m.date);
-      const localDateIso = d.toISOString().split('T')[0];
-      return localDateIso === dateIso;
+      // Extrair apenas a parte da data da medição também
+      const medidaDateIso = new Date(m.date).toISOString().split('T')[0];
+      
+      console.log('Comparando datas para peso:', {
+        dateFoto: datePart,
+        dateMedida: medidaDateIso,
+        isMatch: datePart === medidaDateIso
+      });
+      
+      return datePart === medidaDateIso;
     });
+    
     return medida ? `${medida.weight}kg` : null;
   }
 
@@ -82,13 +120,49 @@ export default function ComparePhotosPage() {
   // Agrupa as fotos por data ISO e tipo
   const photosByDateAndAngle: Record<string, Record<string, Photo>> = {};
   photos.forEach(photo => {
-    const dateIso = photo.date.split('T')[0];
-    if (!photosByDateAndAngle[dateIso]) photosByDateAndAngle[dateIso] = {};
-    photosByDateAndAngle[dateIso][photo.angle] = photo;
+    try {
+      // Extrair a data ISO (YYYY-MM-DD) da foto
+      const datePart = photo.date.split('T')[0];
+      
+      // Inicializar o objeto se ainda não existir para esta data
+      if (!photosByDateAndAngle[datePart]) {
+        photosByDateAndAngle[datePart] = {};
+      }
+      
+      // Armazenar a foto pelo ângulo
+      photosByDateAndAngle[datePart][photo.angle] = photo;
+      
+      console.log('Foto agrupada:', {
+        id: photo.id,
+        date: photo.date,
+        datePart,
+        angle: photo.angle
+      });
+    } catch (error) {
+      console.error('Erro ao agrupar foto:', error, photo);
+    }
   });
 
-  // Ordena as datas selecionadas do menor para o maior (datas ISO)
-  const sortedDates = dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  // Ordena as datas selecionadas do mais recente para o mais antigo (datas ISO)
+  const sortedDates = dates.sort((a, b) => {
+    try {
+      // Extrair apenas as partes da data (YYYY-MM-DD)
+      const datePartA = a.split('T')[0];
+      const datePartB = b.split('T')[0];
+      
+      // Criar datas com UTC fixo para evitar problemas de fuso
+      const [yearA, monthA, dayA] = datePartA.split('-').map(Number);
+      const [yearB, monthB, dayB] = datePartB.split('-').map(Number);
+      
+      const dateA = new Date(Date.UTC(yearA, monthA - 1, dayA, 12, 0, 0));
+      const dateB = new Date(Date.UTC(yearB, monthB - 1, dayB, 12, 0, 0));
+      
+      return dateB.getTime() - dateA.getTime(); // Invertido para ordem decrescente
+    } catch (error) {
+      console.error('Erro ao ordenar datas:', error, a, b);
+      return 0;
+    }
+  });
 
   // Fullscreen handlers
   const handleFullscreen = () => {
