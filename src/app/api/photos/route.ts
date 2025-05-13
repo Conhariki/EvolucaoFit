@@ -265,7 +265,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Verifica se a foto pertence ao usuário
+    // Verificar se a foto pertence ao usuário
     console.log('Verificando se a foto pertence ao usuário...');
     const existingPhoto = await prisma.photo.findFirst({
       where: {
@@ -282,11 +282,11 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Excluir o blob antigo se for uma URL do Blob Storage
     try {
-      // Extrair o nome do arquivo da URL do blob antigo
       const oldBlobUrl = existingPhoto.url;
       
-      // Verifica se é uma URL do Vercel Blob Storage
+      // Verificar se é uma URL do Vercel Blob Storage
       if (oldBlobUrl.includes('vercel-storage.com')) {
         const oldBlobUrlParts = new URL(oldBlobUrl);
         const oldPathname = oldBlobUrlParts.pathname;
@@ -294,21 +294,29 @@ export async function PUT(request: Request) {
         
         console.log('Tentando excluir blob antigo:', oldFilename);
         
-        // Deletar o blob antigo
         if (oldFilename) {
           await del(oldFilename);
           console.log('Blob antigo excluído com sucesso');
         }
       } else {
-        console.log('URL antiga não é do Vercel Blob Storage, pulando exclusão');
+        console.log('URL antiga não é do Vercel Blob Storage, pulando exclusão:', oldBlobUrl);
       }
     } catch (deleteError) {
-      console.error('Erro ao excluir blob antigo:', deleteError);
-      // Continua mesmo se falhar ao excluir o blob antigo
+      console.error('Erro ao excluir blob antigo (continuando):', deleteError);
+      // Continuamos mesmo se falhar a exclusão do blob antigo
     }
 
+    // Verificar se o token do Blob Storage está configurado
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error('ERRO: BLOB_READ_WRITE_TOKEN não configurado');
+      return NextResponse.json(
+        { error: 'Configuração de storage ausente', details: 'BLOB_READ_WRITE_TOKEN não configurado' },
+        { status: 500 }
+      );
+    }
+
+    // Upload do novo arquivo para Vercel Blob Storage
     try {
-      // Upload do novo arquivo para Vercel Blob Storage
       const fileName = `${uuidv4()}.${file.name.split('.').pop()}`;
       console.log(`Fazendo upload do novo arquivo para Vercel Blob Storage: ${fileName}`);
       
