@@ -43,29 +43,51 @@ export async function POST(request: Request) {
     }
 
     try {
+      // Verificar se o token do Blob Storage está configurado
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        console.error('ERRO: BLOB_READ_WRITE_TOKEN não configurado');
+        return NextResponse.json(
+          { error: 'Configuração de storage ausente', details: 'BLOB_READ_WRITE_TOKEN não configurado' },
+          { status: 500 }
+        );
+      }
+      
       // Upload para Vercel Blob Storage
       const fileName = `${uuidv4()}.${file.name.split('.').pop()}`;
       console.log(`Fazendo upload para Vercel Blob Storage: ${fileName}`);
       
-      const blob = await put(fileName, file, {
-        access: 'public',
-      });
-      
-      console.log('Blob criado:', blob);
+      try {
+        const blob = await put(fileName, file, {
+          access: 'public',
+        });
+        
+        console.log('Blob criado:', blob);
 
-      // Salva a referência no banco de dados
-      console.log('Criando registro no banco de dados...');
-      const photo = await prisma.photo.create({
-        data: {
-          userId: session.user.id,
-          url: blob.url, // Usa a URL do blob diretamente
-          angle,
-          date: new Date(date),
-        },
-      });
+        // Salva a referência no banco de dados
+        console.log('Criando registro no banco de dados...');
+        const photo = await prisma.photo.create({
+          data: {
+            userId: session.user.id,
+            url: blob.url, // Usa a URL do blob diretamente
+            angle,
+            date: new Date(date),
+          },
+        });
 
-      console.log('Foto criada com sucesso:', photo);
-      return NextResponse.json(photo);
+        console.log('Foto criada com sucesso:', photo);
+        return NextResponse.json(photo);
+      } catch (blobError) {
+        console.error('Erro específico do Vercel Blob:', blobError);
+        // Verificar problemas específicos com o serviço Blob
+        return NextResponse.json(
+          { 
+            error: 'Erro no serviço de armazenamento', 
+            message: blobError instanceof Error ? blobError.message : 'Erro ao usar Vercel Blob Storage',
+            details: JSON.stringify(blobError)
+          },
+          { status: 500 }
+        );
+      }
     } catch (uploadError) {
       console.error('Erro ao fazer upload para Blob Storage:', uploadError);
       return NextResponse.json(
