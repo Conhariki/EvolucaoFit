@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  role          Role          @default(ALUNO)
+  professorId   String?
+  professor     User?         @relation("ProfessorAlunos", fields: [professorId], references: [id])
+  alunos        User[]        @relation("ProfessorAlunos")
+  measurements  Measurement[]
+  photos        Photo[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Measurement {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  weight    Float
+  chest     Float?
+  waist     Float?
+  hips      Float?
+  biceps    Float?
+  thighs    Float?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Photo {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  url       String
+  angle     PhotoAngle
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  PROFESSOR
+  ALUNO
+}
+
+enum PhotoAngle {
+  FRONT
+  BACK
+  LEFT
+  RIGHT
+  BICEPS
+} 

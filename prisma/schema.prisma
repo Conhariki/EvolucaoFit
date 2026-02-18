@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+
+
+model User {
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  password      String
+  birthDate     DateTime?
+  height        Float?
+  phone         String?
+  address       String?
+  role          String        @default("ALUNO")
+  professorId   String?
+  professor     User?         @relation("ProfessorAlunos", fields: [professorId], references: [id])
+  alunos        User[]        @relation("ProfessorAlunos")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  emailVerified DateTime?
+  image         String?
+  measurements  Measurement[]
+  photos        Photo[]
+
+  @@map("users")
+}
+
+model MeasurementType {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  values      MeasurementValue[]
+
+  @@map("measurement_types")
+}
+
+model Measurement {
+  id        String   @id @default(cuid())
+  userId    String
+  weight    Float
+  date      DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  values    MeasurementValue[]
+
+  @@map("measurements")
+}
+
+model MeasurementValue {
+  id            String       @id @default(cuid())
+  measurementId String
+  measurement   Measurement  @relation(fields: [measurementId], references: [id], onDelete: Cascade)
+  typeId        String
+  type          MeasurementType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  value         Float
+
+  @@map("measurement_values")
+}
+
+model Photo {
+  id        String     @id @default(cuid())
+  userId    String
+  url       String
+  date      DateTime   @default(now())
+  angle     String
+  updatedAt DateTime   @default(now()) @updatedAt
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@map("photos")
+}
