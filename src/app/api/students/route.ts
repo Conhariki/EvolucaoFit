@@ -140,3 +140,58 @@ export async function DELETE(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      );
+    }
+
+    const data = await request.json();
+    const { id, name, height, gender } = data;
+
+    if (!id || !name) {
+      return NextResponse.json(
+        { error: 'ID e Nome são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    // Verify if user is professor of this student
+    const student = await prisma.user.findFirst({
+      where: {
+        id,
+        professorId: session.user.id,
+      },
+    });
+
+    if (!student && session.user.role === 'PROFESSOR') {
+      return NextResponse.json(
+        { error: 'Aluno não encontrado ou não vinculado' },
+        { status: 403 }
+      );
+    }
+
+    const updatedStudent = await prisma.user.update({
+      where: { id },
+      data: {
+        name,
+        height: height ? parseFloat(height) : null,
+        gender,
+      },
+    });
+
+    return NextResponse.json(updatedStudent);
+  } catch (error) {
+    console.error('Erro ao atualizar aluno:', error);
+    return NextResponse.json(
+      { error: 'Erro ao atualizar aluno' },
+      { status: 500 }
+    );
+  }
+}
+

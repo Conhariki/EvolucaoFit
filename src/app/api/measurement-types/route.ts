@@ -126,6 +126,40 @@ export async function DELETE(request: Request) {
       );
     }
 
+    const measurementType = await prisma.measurementType.findUnique({
+      where: { id },
+    });
+
+    if (!measurementType) {
+      return NextResponse.json(
+        { error: 'Tipo de medida não encontrado' },
+        { status: 404 }
+      );
+    }
+
+    const protectedTypes = [
+      'Pescoço', 'Cintura', 'Quadril',
+      'Peitoral', // Girth or Skinfold keys
+      'Dobra Cutânea - Peitoral',
+      'Dobra Cutânea - Axilar Média',
+      'Dobra Cutânea - Tríceps',
+      'Dobra Cutânea - Subescapular',
+      'Dobra Cutânea - Abdominal',
+      'Dobra Cutânea - Suprailíaca',
+      'Dobra Cutânea - Coxa',
+      'Bíceps Esquerdo', 'Bíceps Direito',
+      'Antebraço Esquerdo', 'Antebraço Direito',
+      'Coxa Esquerda', 'Coxa Direita',
+      'Panturrilha Esquerda', 'Panturrilha Direita'
+    ];
+
+    if (protectedTypes.includes(measurementType.name)) {
+      return NextResponse.json(
+        { error: 'Este tipo de medida é essencial para o sistema e não pode ser excluído.' },
+        { status: 403 }
+      );
+    }
+
     await prisma.measurementType.delete({
       where: { id },
     });

@@ -694,25 +694,27 @@ export default function PhotosPage() {
     try {
       // Encontrar todas as fotos daquela data
       const fotosAntigas = (photos as Photo[]).filter(p => formatDate(p.date) === editColumnDateModal.oldDate);
+
+      // Se não encontrar fotos, pode ser problema de formatação. Vamos tentar bater com o que temos.
+      console.log(`Atualizando fotos de ${editColumnDateModal.oldDate} para ${editColumnDateModal.newDate}. Encontradas: ${fotosAntigas.length}`);
+
       for (const foto of fotosAntigas) {
-        // Buscar a imagem original
-        const response = await fetch(foto.url);
-        const blob = await response.blob();
-        const file = new File([blob], 'original.jpg', { type: 'image/jpeg' });
         const formData = new FormData();
-        formData.append('file', file);
+        // Não enviamos o arquivo, apenas os metadados para atualização
         formData.append('angle', foto.angle);
         // Corrigir fuso horário aqui:
         const [year, month, day] = editColumnDateModal.newDate.split('-').map(Number);
         const dateObj = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
         formData.append('date', dateObj.toISOString());
         formData.append('id', foto.id);
+
         await axios.put('/api/photos', formData);
       }
       toast({ title: 'Data da coluna atualizada', status: 'success', duration: 3000, isClosable: true });
       setEditColumnDateModal({ oldDate: null, newDate: '' });
       mutate();
     } catch (error) {
+      console.error('Erro ao atualizar data da coluna:', error);
       toast({ title: 'Erro ao atualizar data da coluna', status: 'error', duration: 3000, isClosable: true });
     }
   };
@@ -778,8 +780,16 @@ export default function PhotosPage() {
     // date no formato dd/mm/yyyy
     const medida = measurements.find((m: any) => {
       const d = new Date(m.date);
-      const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
-      return localDate === date;
+      // Check UTC
+      const dayUTC = String(d.getUTCDate()).padStart(2, '0');
+      const monthUTC = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yearUTC = d.getUTCFullYear();
+      const utcDate = `${dayUTC}/${monthUTC}/${yearUTC}`;
+
+      // Check Local (pt-BR) just in case the measurement was saved in a way that shifts the day in UTC
+      const localDate = d.toLocaleDateString('pt-BR');
+
+      return utcDate === date || localDate === date;
     });
     return medida ? `${medida.weight}kg` : null;
   }
@@ -933,7 +943,7 @@ export default function PhotosPage() {
                     onChange={() => handleDateCheck(date)}
                   >
                     <Text fontWeight="bold" fontSize={{ base: 'xs', md: 'sm' }}>
-                      {date} {getPesoByDate(date) && `(${getPesoByDate(date)})`}
+                      {getPesoByDate(date) && `${getPesoByDate(date)} - `} {date}
                     </Text>
                   </Checkbox>
                   <IconButton

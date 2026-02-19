@@ -15,8 +15,11 @@ import {
   useToast,
   Container,
   Link,
+  Flex,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
+import { FcGoogle } from 'react-icons/fc';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -99,7 +102,26 @@ export default function LoginPage() {
               </Button>
             </VStack>
           </form>
-        </Box>
+
+
+          <Box mt={6}>
+            <Box position="relative" padding="4">
+              <Box position="absolute" top="50%" left="0" right="0" borderTop="1px" borderColor="gray.200" />
+              <Box position="relative" bg="white" px="4" textAlign="center" color="gray.500" fontSize="sm">
+                OU
+              </Box>
+            </Box>
+
+            <Button
+              w={'full'}
+              variant={'outline'}
+              leftIcon={<FcGoogle />}
+              onClick={() => signIn('google')}
+            >
+              Entrar com Google
+            </Button>
+          </Box>
+        </Box >
 
         <Text>
           Não tem uma conta?{' '}
@@ -107,7 +129,7 @@ export default function LoginPage() {
             Registre-se
           </Link>
         </Text>
-      </VStack>
-    </Container>
+      </VStack >
+    </Container >
   );
 } 

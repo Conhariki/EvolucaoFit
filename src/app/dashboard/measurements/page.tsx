@@ -285,11 +285,6 @@ export default function MeasurementsPage() {
 
     setFormData({
       weight: '',
-      chest: '',
-      waist: '',
-      hips: '',
-      biceps: '',
-      thighs: '',
       date: localDate.toISOString().split('T')[0],
     });
     onToggle();
@@ -309,9 +304,11 @@ export default function MeasurementsPage() {
 
     // Populate measurement values for dynamic fields
     const newValues: Record<string, string> = {};
-    measurement.values.forEach(v => {
-      newValues[v.typeId] = v.value.toString();
-    });
+    if (measurement.values && Array.isArray(measurement.values)) {
+      measurement.values.forEach(v => {
+        newValues[v.typeId] = v.value.toString();
+      });
+    }
     setMeasurementValues(newValues);
     onToggle();
   };
@@ -320,11 +317,6 @@ export default function MeasurementsPage() {
     setEditingId(null);
     setFormData({
       weight: '',
-      chest: '',
-      waist: '',
-      hips: '',
-      biceps: '',
-      thighs: '',
       date: '',
     });
     onClose();
@@ -583,7 +575,7 @@ export default function MeasurementsPage() {
                       <Td>{localDate.toLocaleDateString('pt-BR')}</Td>
                       <Td isNumeric>{measurement.weight} kg</Td>
                       {measurementTypes.map(type => {
-                        const val = measurement.values.find(v => v.typeId === type.id);
+                        const val = measurement.values?.find(v => v.typeId === type.id);
                         return (
                           <Td key={type.id} isNumeric>
                             {val ? `${val.value} cm` : '-'}

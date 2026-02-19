@@ -9,11 +9,15 @@ interface Student {
   name: string;
   email: string;
   role: string;
+  gender?: string;
+  height?: number;
+  birthDate?: string;
 }
 
 interface StudentContextType {
   selectedStudentId: string | null;
   students: Student[];
+  isLoading: boolean;
   setSelectedStudentId: (id: string | null) => void;
   refreshStudents: () => Promise<void>;
 }
@@ -24,6 +28,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSetSelectedStudentId = (id: string | null) => {
     setSelectedStudentId(id);
@@ -39,6 +44,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   const fetchStudents = async () => {
     if (status !== 'authenticated') return;
 
+    setIsLoading(true);
     try {
       const response = await axios.get('/api/students', {
         withCredentials: true,
@@ -57,6 +63,8 @@ export function StudentProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Erro ao buscar alunos:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -70,6 +78,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
       value={{
         selectedStudentId,
         students,
+        isLoading,
         setSelectedStudentId: handleSetSelectedStudentId,
         refreshStudents: fetchStudents,
       }}

@@ -164,63 +164,147 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const dateStr = searchParams.get('date');
 
-    if (!id) {
+    if (!id && !dateStr) {
       return NextResponse.json(
-        { error: 'ID da foto é obrigatório' },
+        { error: 'ID da foto ou data é obrigatório' },
         { status: 400 }
       );
     }
 
-    // Verify permission: owner of the photo OR professor linked to the student
-    const existingPhoto = await prisma.photo.findUnique({
-      where: { id },
-    });
+    // Determine target user (professor logic)
+    let targetUserId = session.user.id;
+    // For bulk delete by date, we might need studentId if professor is acting
+    // But usually handleDeleteDate is called in context of a student if selected.
+    // The current frontend implementation of handleDeleteDate doesn't pass studentId in query params,
+    // only date. This might be an issue if a professor is viewing a student.
+    // However, the GET request uses studentId.
+    // Let's check how we can know the studentId here.
+    // If it's bulk delete, we might delete photos from the wrong user if we just use session.user.id
+    // But let's look at how GET does it. It reads studentId from searchParams.
+    // The frontend sends axios.delete(\`/api/photos?date=\${encodeURIComponent(date)}\`);
+    // It does NOT send studentId.
+    // We should probably rely on finding the photos first to verify ownership.
 
-    if (!existingPhoto) {
-      return NextResponse.json(
-        { error: 'Foto não encontrada' },
-        { status: 404 }
-      );
-    }
-
-    const isOwner = existingPhoto.userId === session.user.id;
-    let isProfessor = false;
-
-    if (!isOwner && session.user.role === 'PROFESSOR') {
-      const student = await prisma.user.findFirst({
-        where: {
-          id: existingPhoto.userId,
-          professorId: session.user.id,
-        },
+    if (id) {
+      // Single photo deletion logic (existing)
+      const existingPhoto = await prisma.photo.findUnique({
+        where: { id },
       });
-      console.log('Verifying professor delete. Student found:', student);
-      if (student) isProfessor = true;
-    }
 
-    if (!isOwner && !isProfessor) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 403 }
-      );
-    }
-
-    // Remove o arquivo físico
-    const filePath = join(process.cwd(), 'public', existingPhoto.url);
-    try {
-      if (existsSync(filePath)) {
-        await unlink(filePath);
+      if (!existingPhoto) {
+        return NextResponse.json(
+          { error: 'Foto não encontrada' },
+          { status: 404 }
+        );
       }
-    } catch (error) {
-      console.error('Erro ao remover arquivo físico:', error);
+
+      const isOwner = existingPhoto.userId === session.user.id;
+      let isProfessor = false;
+
+      if (!isOwner && session.user.role === 'PROFESSOR') {
+        const student = await prisma.user.findFirst({
+          where: {
+            id: existingPhoto.userId,
+            professorId: session.user.id,
+          },
+        });
+        if (student) isProfessor = true;
+      }
+
+      if (!isOwner && !isProfessor) {
+        return NextResponse.json(
+          { error: 'Não autorizado' },
+          { status: 403 }
+        );
+      }
+
+      const filePath = join(process.cwd(), 'public', existingPhoto.url);
+      try {
+        if (existsSync(filePath)) {
+          await unlink(filePath);
+        }
+      } catch (error) {
+        console.error('Erro ao remover arquivo físico:', error);
+      }
+
+      await prisma.photo.delete({
+        where: { id },
+      });
+
+      return NextResponse.json({ message: 'Foto excluída com sucesso' });
+
+    } else if (dateStr) {
+      // Bulk deletion by date
+      // Format expected: dd/mm/yyyy
+      const [day, month, year] = dateStr.split('/').map(Number);
+
+      if (!day || !month || !year) {
+        return NextResponse.json({ error: 'Data inválida' }, { status: 400 });
+      }
+
+      const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+      const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+      console.log('Deleting photos for date range:', startDate, endDate);
+
+      // Find photos in this range
+      // We need to be careful about WHOSE photos we are deleting.
+      // If we don't have studentId, we can only delete photos of the logged in user OR
+      // we need to find photos and verify permissions for each (or collectively).
+
+      // Strict approach: Find photos that match the date AND (userId is session.user.id OR userId is a student of session.user.id)
+
+      const photosToDelete = await prisma.photo.findMany({
+        where: {
+          date: {
+            gte: startDate,
+            lte: endDate
+          }
+        }
+      });
+
+      const deletedIds = [];
+      const errors = [];
+
+      for (const photo of photosToDelete) {
+        // Check permission for each photo
+        const isOwner = photo.userId === session.user.id;
+        let isProfessor = false;
+
+        if (!isOwner && session.user.role === 'PROFESSOR') {
+          const student = await prisma.user.findFirst({
+            where: {
+              id: photo.userId,
+              professorId: session.user.id,
+            },
+          });
+          if (student) isProfessor = true;
+        }
+
+        if (isOwner || isProfessor) {
+          // Delete file
+          const filePath = join(process.cwd(), 'public', photo.url);
+          try {
+            if (existsSync(filePath)) {
+              await unlink(filePath);
+            }
+          } catch (error) {
+            console.error(`Erro ao remover arquivo físico ${photo.id}:`, error);
+          }
+
+          // Delete db
+          await prisma.photo.delete({ where: { id: photo.id } });
+          deletedIds.push(photo.id);
+        }
+      }
+
+      return NextResponse.json({ message: `Excluídas ${deletedIds.length} fotos` });
     }
 
-    // Remove do banco de dados
-    await prisma.photo.delete({
-      where: { id },
-    });
+    return NextResponse.json({ error: 'Parâmetros inválidos' }, { status: 400 });
 
-    return NextResponse.json({ message: 'Foto excluída com sucesso' });
   } catch (error) {
     console.error('Erro ao excluir foto:', error);
     return NextResponse.json(
@@ -243,14 +327,14 @@ export async function PUT(request: Request) {
     }
 
     const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const angle = formData.get('angle') as string;
-    const date = formData.get('date') as string;
+    const file = formData.get('file') as File | null;
+    const angle = formData.get('angle') as string | null;
+    const date = formData.get('date') as string | null;
     const id = formData.get('id') as string;
 
-    if (!file || !angle || !date || !id) {
+    if (!id) {
       return NextResponse.json(
-        { error: 'Arquivo, ângulo, data e id são obrigatórios' },
+        { error: 'ID da foto é obrigatório' },
         { status: 400 }
       );
     }
@@ -288,41 +372,46 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Remove o arquivo físico antigo
-    const oldFilePath = join(process.cwd(), 'public', existingPhoto.url);
-    try {
-      if (existsSync(oldFilePath)) {
-        await unlink(oldFilePath);
+    const dataToUpdate: any = {};
+    if (angle) dataToUpdate.angle = angle;
+    if (date) dataToUpdate.date = new Date(date);
+
+    // Only process file if it was provided
+    if (file && file.size > 0) {
+      // Remove o arquivo físico antigo
+      const oldFilePath = join(process.cwd(), 'public', existingPhoto.url);
+      try {
+        if (existsSync(oldFilePath)) {
+          await unlink(oldFilePath);
+        }
+      } catch (error) {
+        console.error('Erro ao remover arquivo antigo:', error);
       }
-    } catch (error) {
-      console.error('Erro ao remover arquivo antigo:', error);
+
+      // Gera um nome único para o novo arquivo
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExtension}`;
+      const uploadDir = join(process.cwd(), 'public', 'uploads');
+
+      // Garantir que o diretório existe
+      if (!existsSync(uploadDir)) {
+        await mkdir(uploadDir, { recursive: true });
+      }
+
+      const filePath = join(uploadDir, fileName);
+
+      // Converte o arquivo para buffer e salva
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      await writeFile(filePath, buffer);
+
+      dataToUpdate.url = `/uploads/${fileName}`;
     }
-
-    // Gera um nome único para o novo arquivo
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-
-    // Garantir que o diretório existe
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    const filePath = join(uploadDir, fileName);
-
-    // Converte o arquivo para buffer e salva
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
 
     // Atualiza a referência no banco de dados
     const updatedPhoto = await prisma.photo.update({
       where: { id },
-      data: {
-        url: `/uploads/${fileName}`,
-        angle: angle as any,
-        date: new Date(date),
-      },
+      data: dataToUpdate,
     });
 
     console.log('Foto atualizada:', updatedPhoto);

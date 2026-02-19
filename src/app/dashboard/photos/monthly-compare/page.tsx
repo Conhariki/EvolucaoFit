@@ -55,44 +55,100 @@ export default function MonthlyComparePage() {
   const headerBg = useColorModeValue('gray.50', 'gray.700');
   const headerText = useColorModeValue('gray.600', 'gray.300');
 
+  // Determinar o ID do aluno para buscar medidas
+  const studentIdForMeasurements = selectedStudentId || (typeof window !== 'undefined' ? sessionStorage.getItem('selectedStudentId') : null);
+  const measurementsUrl = studentIdForMeasurements ? `/api/measurements?studentId=${studentIdForMeasurements}` : '/api/measurements';
+
+  const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
+  // Use SWR for caching and easy access, consistent with other pages
+  // Note: We need to import useSWR. If not available, we can fetch in useEffect.
+  // Assuming useSWR is available or we add it. If not, I'll add the fetch to the existing useEffect.
+  // Let's use basic fetch in useEffect to match the file style if useSWR isn't imported, 
+  // but adding useSWR is better. I'll stick to a simple state for now to minimize imports change if I can't see imports.
+  // Actually, I can just fetch it.
+
+  const [measurements, setMeasurements] = useState<any[]>([]);
+
   useEffect(() => {
-    const fetchPhotos = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const studentId = selectedStudentId || (typeof window !== 'undefined' ? sessionStorage.getItem('selectedStudentId') : null);
-        const url = studentId ? `/api/photos?studentId=${studentId}` : '/api/photos';
-        const response = await axios.get(url, { withCredentials: true });
-        setPhotos(response.data);
+
+        const photosUrl = studentId ? `/api/photos?studentId=${studentId}` : '/api/photos';
+        const measurementsUrl = studentId ? `/api/measurements?studentId=${studentId}` : '/api/measurements';
+
+        const [photosRes, measurementsRes] = await Promise.all([
+          axios.get(photosUrl, { withCredentials: true }),
+          axios.get(measurementsUrl, { withCredentials: true })
+        ]);
+
+        setPhotos(photosRes.data.sort((a: Photo, b: Photo) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        setMeasurements(measurementsRes.data);
+
       } catch (error) {
-        console.error('Erro ao buscar fotos:', error);
+        console.error('Erro ao buscar dados:', error);
         setPhotos([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPhotos();
+    fetchData();
   }, [selectedStudentId]);
+
+  function getPesoByDate(dateStr: string) {
+    // dateStr vindo do banco (ISO) ou objeto Date da foto
+    const date = new Date(dateStr);
+
+    // Formatar para comparação
+    // Check UTC
+    const dayUTC = String(date.getUTCDate()).padStart(2, '0');
+    const monthUTC = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const yearUTC = date.getUTCFullYear();
+    const utcDate = `${dayUTC}/${monthUTC}/${yearUTC}`;
+
+    // Check Local
+    const localDate = date.toLocaleDateString('pt-BR');
+
+    const medida = measurements.find((m: any) => {
+      const d = new Date(m.date);
+      // Check UTC
+      const mDayUTC = String(d.getUTCDate()).padStart(2, '0');
+      const mMonthUTC = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const mYearUTC = d.getUTCFullYear();
+      const mUtcDate = `${mDayUTC}/${mMonthUTC}/${mYearUTC}`;
+
+      // Check Local
+      const mLocalDate = d.toLocaleDateString('pt-BR');
+
+      return mUtcDate === utcDate || mLocalDate === localDate || mUtcDate === localDate || mLocalDate === utcDate;
+    });
+    return medida ? `${medida.weight}kg` : null;
+  }
+
 
   // Define o ano padrão quando as fotos são carregadas
   useEffect(() => {
     if (photos.length > 0 && !selectedYear) {
-      const firstDate = new Date(photos[0].date);
+      const firstDate = new Date(photos[photos.length - 1].date); // Try to select the latest year
       setSelectedYear(firstDate.getFullYear().toString());
     }
   }, [photos, selectedYear]);
 
-  // Agrupa fotos por mês/ano e ângulo
-  const photosByMonthAndAngle: Record<string, Record<string, Photo>> = {};
+  // Agrupa fotos por mês/ano e ângulo (agora suporta múltiplas fotos)
+  const photosByMonthAndAngle: Record<string, Record<string, Photo[]>> = {};
   photos.forEach(photo => {
     const date = new Date(photo.date);
-    const monthYear = `${date.toLocaleString('pt-BR', { month: 'long' })}-${date.getFullYear()}`;
     const monthYearKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
+
     if (!photosByMonthAndAngle[monthYearKey]) {
       photosByMonthAndAngle[monthYearKey] = {};
     }
-    photosByMonthAndAngle[monthYearKey][photo.angle] = photo;
+    if (!photosByMonthAndAngle[monthYearKey][photo.angle]) {
+      photosByMonthAndAngle[monthYearKey][photo.angle] = [];
+    }
+    photosByMonthAndAngle[monthYearKey][photo.angle].push(photo);
   });
 
   // Obtém todos os meses/anos disponíveis
@@ -119,6 +175,11 @@ export default function MonthlyComparePage() {
     const [year, month] = key.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1);
     return date.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR');
   };
 
   if (loading) {
@@ -172,12 +233,12 @@ export default function MonthlyComparePage() {
                     <Heading size="md" mb={4} color={textColor}>{label}</Heading>
                     <Box overflowX="auto">
                       <Grid
-                        templateColumns={`repeat(${filteredMonthYears.length}, minmax(200px, 1fr))`}
+                        templateColumns={`repeat(${filteredMonthYears.length}, minmax(220px, 1fr))`}
                         gap={4}
-                        minW={`${filteredMonthYears.length * 220}px`}
+                        minW={`${filteredMonthYears.length * 240}px`}
                       >
                         {filteredMonthYears.map(monthYearKey => {
-                          const photo = photosByMonthAndAngle[monthYearKey]?.[value];
+                          const photos = photosByMonthAndAngle[monthYearKey]?.[value] || [];
                           return (
                             <Box
                               key={monthYearKey}
@@ -187,25 +248,38 @@ export default function MonthlyComparePage() {
                               borderColor={borderColor}
                               borderRadius="md"
                               bg={headerBg}
+                              verticalAlign="top"
                             >
                               <Text fontWeight="bold" mb={2} fontSize="sm" color={textColor}>
                                 {formatMonthYear(monthYearKey)}
                               </Text>
-                              {photo ? (
-                                <Image
-                                  src={photo.url}
-                                  alt={`${label} - ${formatMonthYear(monthYearKey)}`}
-                                  borderRadius="md"
-                                  maxH="300px"
-                                  width="auto"
-                                  mx="auto"
-                                  objectFit="contain"
-                                  cursor="pointer"
-                                  onClick={() => window.open(photo.url, '_blank')}
-                                />
+                              {photos.length > 0 ? (
+                                <VStack spacing={2}>
+                                  {photos.map(photo => {
+                                    const peso = getPesoByDate(photo.date);
+                                    return (
+                                      <Box key={photo.id} w="100%">
+                                        <Text fontSize="xs" color="gray.500" mb={1}>
+                                          {peso ? `${peso} - ` : ''}{formatDate(photo.date)}
+                                        </Text>
+                                        <Image
+                                          src={photo.url}
+                                          alt={`${label} - ${formatDate(photo.date)}`}
+                                          borderRadius="md"
+                                          maxH="200px"
+                                          width="auto"
+                                          mx="auto"
+                                          objectFit="contain"
+                                          cursor="pointer"
+                                          onClick={() => window.open(photo.url, '_blank')}
+                                        />
+                                      </Box>
+                                    );
+                                  })}
+                                </VStack>
                               ) : (
                                 <Box
-                                  height="300px"
+                                  height="200px"
                                   display="flex"
                                   alignItems="center"
                                   justifyContent="center"
@@ -235,7 +309,7 @@ export default function MonthlyComparePage() {
                     </Heading>
                     <Grid templateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={4}>
                       {ANGLES.map(({ value, label }) => {
-                        const photo = photosByMonthAndAngle[monthYearKey]?.[value];
+                        const photos = photosByMonthAndAngle[monthYearKey]?.[value] || [];
                         return (
                           <Box
                             key={value}
@@ -245,25 +319,38 @@ export default function MonthlyComparePage() {
                             borderColor={borderColor}
                             borderRadius="md"
                             bg={headerBg}
+                            verticalAlign="top"
                           >
                             <Text fontWeight="bold" mb={2} fontSize="sm" color={textColor}>
                               {label}
                             </Text>
-                            {photo ? (
-                              <Image
-                                src={photo.url}
-                                alt={`${label} - ${formatMonthYear(monthYearKey)}`}
-                                borderRadius="md"
-                                maxH="250px"
-                                width="auto"
-                                mx="auto"
-                                objectFit="contain"
-                                cursor="pointer"
-                                onClick={() => window.open(photo.url, '_blank')}
-                              />
+                            {photos.length > 0 ? (
+                              <VStack spacing={2}>
+                                {photos.map(photo => {
+                                  const peso = getPesoByDate(photo.date);
+                                  return (
+                                    <Box key={photo.id} w="100%">
+                                      <Text fontSize="xs" color="gray.500" mb={1}>
+                                        {peso ? `${peso} - ` : ''}{formatDate(photo.date)}
+                                      </Text>
+                                      <Image
+                                        src={photo.url}
+                                        alt={`${label} - ${formatDate(photo.date)}`}
+                                        borderRadius="md"
+                                        maxH="200px"
+                                        width="auto"
+                                        mx="auto"
+                                        objectFit="contain"
+                                        cursor="pointer"
+                                        onClick={() => window.open(photo.url, '_blank')}
+                                      />
+                                    </Box>
+                                  );
+                                })}
+                              </VStack>
                             ) : (
                               <Box
-                                height="250px"
+                                height="200px"
                                 display="flex"
                                 alignItems="center"
                                 justifyContent="center"

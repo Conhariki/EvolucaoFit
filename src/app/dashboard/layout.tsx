@@ -105,7 +105,10 @@ export default function DashboardLayout({
               <FormControl maxW="200px">
                 <Select
                   value={selectedStudentId || ''}
-                  onChange={(e) => setSelectedStudentId(e.target.value || null)}
+                  onChange={(e) => {
+                    setSelectedStudentId(e.target.value || null);
+                    router.push('/dashboard');
+                  }}
                   size="sm"
                 >
                   {students.map((student) => (

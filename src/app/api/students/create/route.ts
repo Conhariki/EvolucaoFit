@@ -15,7 +15,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const { name, email, password, birthDate, height, phone, address } = await req.json();
+        const { name, email, password, birthDate, height, phone, address, gender } = await req.json();
 
         if (!name || !email || !password) {
             return NextResponse.json(
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
                 height: height ? parseFloat(height) : null,
                 phone: phone || null,
                 address: address || null,
+                gender: gender || 'MASCULINO',
             },
         });
 

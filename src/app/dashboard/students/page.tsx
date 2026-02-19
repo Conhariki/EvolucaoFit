@@ -31,7 +31,7 @@ import {
   Input,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { DeleteIcon } from '@chakra-ui/icons';
+import { DeleteIcon, EditIcon } from '@chakra-ui/icons';
 import axios from 'axios';
 
 interface Student {
@@ -39,6 +39,8 @@ interface Student {
   name: string;
   email: string;
   role: string;
+  height?: number;
+  gender?: string;
 }
 
 export default function StudentsPage() {
@@ -189,6 +191,57 @@ export default function StudentsPage() {
     (user) => !students.some((s) => s.id === user.id)
   );
 
+  /* State for Edit Modal */
+  const {
+    isOpen: isEditOpen,
+    onOpen: onEditOpen,
+    onClose: onEditClose
+  } = useDisclosure();
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editHeight, setEditHeight] = useState('');
+  const [editGender, setEditGender] = useState('MASCULINO');
+
+  const handleOpenEdit = (student: Student) => {
+    setEditingStudent(student);
+    setEditName(student.name);
+    setEditHeight(student.height ? student.height.toString() : '');
+    setEditGender(student.gender || 'MASCULINO');
+    onEditOpen();
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingStudent || !editName) return;
+    setIsLoading(true);
+    try {
+      await axios.put('/api/students', {
+        id: editingStudent.id,
+        name: editName,
+        height: editHeight,
+        gender: editGender
+      });
+      toast({
+        title: 'Sucesso',
+        description: 'Dados do aluno atualizados.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      onEditClose();
+      fetchStudents();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao atualizar aluno.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   /* Novo estado para o modal de cadastro */
   const {
     isOpen: isRegisterOpen,
@@ -199,6 +252,7 @@ export default function StudentsPage() {
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('');
+  const [newStudentGender, setNewStudentGender] = useState('MASCULINO');
 
   const handleRegister = async () => {
     if (!newStudentName || !newStudentEmail || !newStudentPassword) {
@@ -218,6 +272,7 @@ export default function StudentsPage() {
         name: newStudentName,
         email: newStudentEmail,
         password: newStudentPassword,
+        gender: newStudentGender,
       });
 
       toast({
@@ -310,6 +365,13 @@ export default function StudentsPage() {
                     <Td>{student.email}</Td>
                     <Td>
                       <IconButton
+                        aria-label="Editar"
+                        icon={<EditIcon />}
+                        size="sm"
+                        mr={2}
+                        onClick={() => handleOpenEdit(student)}
+                      />
+                      <IconButton
                         aria-label="Desvincular"
                         icon={<DeleteIcon />}
                         size="sm"
@@ -390,12 +452,74 @@ export default function StudentsPage() {
                       placeholder="Senha"
                     />
                   </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Gênero</FormLabel>
+                    <Select
+                      value={newStudentGender}
+                      onChange={(e) => setNewStudentGender(e.target.value)}
+                    >
+                      <option value="MASCULINO">Masculino</option>
+                      <option value="FEMININO">Feminino</option>
+                    </Select>
+                  </FormControl>
                 </VStack>
               </AlertDialogBody>
               <AlertDialogFooter>
                 <Button onClick={onRegisterClose}>Cancelar</Button>
                 <Button colorScheme="green" onClick={handleRegister} ml={3} isLoading={isLoading}>
                   Cadastrar e Vincular
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
+
+        {/* Modal de Edição de Aluno */}
+        <AlertDialog
+          isOpen={isEditOpen}
+          leastDestructiveRef={undefined}
+          onClose={onEditClose}
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent>
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Editar Aluno
+              </AlertDialogHeader>
+              <AlertDialogBody>
+                <VStack spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel>Nome</FormLabel>
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Altura (m)</FormLabel>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editHeight}
+                      onChange={(e) => setEditHeight(e.target.value)}
+                      placeholder="Ex: 1.75"
+                    />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Gênero</FormLabel>
+                    <Select
+                      value={editGender}
+                      onChange={(e) => setEditGender(e.target.value)}
+                    >
+                      <option value="MASCULINO">Masculino</option>
+                      <option value="FEMININO">Feminino</option>
+                    </Select>
+                  </FormControl>
+                </VStack>
+              </AlertDialogBody>
+              <AlertDialogFooter>
+                <Button onClick={onEditClose}>Cancelar</Button>
+                <Button colorScheme="blue" onClick={handleSaveEdit} ml={3} isLoading={isLoading}>
+                  Salvar
                 </Button>
               </AlertDialogFooter>
             </AlertDialogContent>

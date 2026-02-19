@@ -46,14 +46,24 @@ export default function ComparePhotosPage() {
   const headerText = useColorModeValue('gray.600', 'gray.300');
 
   const fetcher = (url: string) => fetch(url, { credentials: 'include' }).then(res => res.json());
-  const { data: measurements = [] } = useSWR('/api/measurements', fetcher, { revalidateOnFocus: false });
+  const studentId = searchParams.get('studentId'); // Extract from searchParams here
+  const measurementsUrl = studentId ? `/api/measurements?studentId=${studentId}` : '/api/measurements';
+  const { data: measurements = [] } = useSWR(measurementsUrl, fetcher, { revalidateOnFocus: false });
 
   function getPesoByDate(date: string) {
     // date no formato dd/mm/yyyy
     const medida = measurements.find((m: any) => {
       const d = new Date(m.date);
-      const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
-      return localDate === date;
+      // Check UTC
+      const dayUTC = String(d.getUTCDate()).padStart(2, '0');
+      const monthUTC = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yearUTC = d.getUTCFullYear();
+      const utcDate = `${dayUTC}/${monthUTC}/${yearUTC}`;
+
+      // Check Local (pt-BR) just in case the measurement was saved in a way that shifts the day in UTC
+      const localDate = d.toLocaleDateString('pt-BR');
+
+      return utcDate === date || localDate === date;
     });
     return medida ? `${medida.weight}kg` : null;
   }
@@ -62,7 +72,6 @@ export default function ComparePhotosPage() {
     const fetchPhotos = async () => {
       setLoading(true);
       try {
-        const studentId = searchParams.get('studentId');
         const url = studentId ? `/api/photos?studentId=${studentId}` : '/api/photos';
         const response = await fetch(url);
         const data = await response.json();
@@ -74,7 +83,7 @@ export default function ComparePhotosPage() {
       }
     };
     fetchPhotos();
-  }, []);
+  }, [studentId]);
 
   // Agrupa as fotos por data e tipo
   const photosByDateAndAngle: Record<string, Record<string, Photo>> = {};
@@ -168,8 +177,7 @@ export default function ComparePhotosPage() {
             <div></div>
             ${sortedDates.map(date => `
               <div class="pdf-header-cell">
-                <div class="pdf-date">${date}</div>
-                ${getPesoByDate(date) ? `<div class="pdf-peso">${getPesoByDate(date)}</div>` : ''}
+                <div class="pdf-date">${getPesoByDate(date) ? getPesoByDate(date) + ' - ' : ''}${date}</div>
               </div>
             `).join('')}
             ${ANGLES.map(({ value, label }) => `
@@ -245,10 +253,12 @@ export default function ComparePhotosPage() {
                 <Box p={0} m={0}></Box>
                 {sortedDates.map(date => (
                   <Box key={date} textAlign="center" fontWeight="bold" p={{ base: 1, md: 2 }} m={0} color={textColor} borderRightWidth={1} borderColor={borderColor} minH={{ base: '40px', md: '56px' }} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                    <Text fontSize={{ base: 'sm', md: 'md' }}>{date}</Text>
-                    {getPesoByDate(date) && (
-                      <Text fontSize={{ base: 'xs', md: 'sm' }} color={headerText} fontWeight="normal">{getPesoByDate(date)}</Text>
-                    )}
+                    <Text fontSize={{ base: 'sm', md: 'md' }}>
+                      {getPesoByDate(date) && (
+                        <Text as="span" fontSize={{ base: 'xs', md: 'sm' }} color={headerText} fontWeight="normal">{getPesoByDate(date)} - </Text>
+                      )}
+                      {date}
+                    </Text>
                   </Box>
                 ))}
               </Grid>
@@ -325,10 +335,12 @@ export default function ComparePhotosPage() {
                 <Box p={0} m={0}></Box>
                 {sortedDates.map(date => (
                   <Box key={date} textAlign="center" fontWeight="bold" p={2} m={0} color={textColor} borderRightWidth={1} borderColor={borderColor} minH="56px" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                    <Text fontSize="md">{date}</Text>
-                    {getPesoByDate(date) && (
-                      <Text fontSize="sm" color={headerText} fontWeight="normal">{getPesoByDate(date)}</Text>
-                    )}
+                    <Text fontSize="md">
+                      {getPesoByDate(date) && (
+                        <Text as="span" fontSize="sm" color={headerText} fontWeight="normal">{getPesoByDate(date)} - </Text>
+                      )}
+                      {date}
+                    </Text>
                   </Box>
                 ))}
               </Grid>

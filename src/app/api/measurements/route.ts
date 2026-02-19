@@ -27,7 +27,14 @@ export async function POST(request: Request) {
 
     // Determina o userId: se for professor e tiver studentId, usa o studentId; senão usa o próprio id
     let targetUserId = session.user.id;
-    if (studentId && session.user.role === 'PROFESSOR') {
+    if (session.user.role === 'PROFESSOR') {
+      if (!studentId) {
+        return NextResponse.json(
+          { error: 'Você deve selecionar um aluno para registrar medidas.' },
+          { status: 400 }
+        );
+      }
+
       // Verifica se o aluno pertence ao professor
       const student = await prisma.user.findFirst({
         where: {
@@ -217,7 +224,7 @@ export async function PUT(request: Request) {
       },
     });
 
-    return NextResponse.json(measurement);
+    return NextResponse.json(finalMeasurement);
   } catch (error) {
     console.error('Erro ao atualizar medição:', error);
     return NextResponse.json(

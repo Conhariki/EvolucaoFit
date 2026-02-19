@@ -22,7 +22,9 @@ import {
   useDisclosure,
   Select,
   useColorModeValue,
+  Tooltip,
 } from '@chakra-ui/react';
+import { InfoOutlineIcon } from '@chakra-ui/icons';
 import { AddIcon } from '@chakra-ui/icons';
 import axios from 'axios';
 import {
@@ -32,11 +34,13 @@ import {
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { useStudent } from '@/contexts/StudentContext';
+import { calculateBMI, calculateBodyFat, calculateBodyFat7Site, getBMICategory } from '@/utils/healthMetrics';
+import DashboardLoading from './loading';
 
 ChartJS.register(
   CategoryScale,
@@ -44,9 +48,18 @@ ChartJS.register(
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend
 );
+
+interface MeasurementValue {
+  id: string;
+  value: number;
+  type: {
+    id: string;
+    name: string;
+  };
+}
 
 interface Measurement {
   id: string;
@@ -57,6 +70,7 @@ interface Measurement {
   biceps?: number;
   thighs?: number;
   date: string;
+  values: MeasurementValue[];
 }
 
 interface Photo {
@@ -82,7 +96,90 @@ export default function DashboardPage() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const { isOpen: isGraphOpen, onToggle: onGraphToggle } = useDisclosure();
   const [selectedMetric, setSelectedMetric] = useState('weight');
-  const { selectedStudentId } = useStudent();
+  const { selectedStudentId, students } = useStudent();
+  const selectedStudent = students.find(s => s.id === selectedStudentId) || (session?.user as any); // Fallback to session user if standard user
+  const [measurementTypes, setMeasurementTypes] = useState<any[]>([]);
+  const [bodyFatMethod, setBodyFatMethod] = useState<'navy' | '7site'>('navy');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Hook calls must be unconditional
+  const cardBg = useColorModeValue('white', 'gray.800');
+
+  useEffect(() => {
+    const fetchMeasurementTypes = async () => {
+      try {
+        const response = await axios.get('/api/measurement-types', {
+          withCredentials: true,
+        });
+        setMeasurementTypes(response.data);
+      } catch (error) {
+        console.error('Erro ao buscar tipos de medidas:', error);
+      }
+    };
+    if (status === 'authenticated') {
+      fetchMeasurementTypes();
+    }
+  }, [status]);
+
+  const bmi = lastMeasurement && selectedStudent?.height
+    ? calculateBMI(lastMeasurement.weight, selectedStudent.height)
+    : null;
+
+  const bmiCategory = bmi ? getBMICategory(bmi) : '';
+
+  const calculateUserBodyFat = () => {
+    if (!lastMeasurement || !selectedStudent?.gender || !selectedStudent?.height) return null;
+
+    if (bodyFatMethod === 'navy') {
+      const waist = lastMeasurement.values?.find(v => v.type.name === 'Cintura')?.value;
+      const neck = lastMeasurement.values?.find(v => v.type.name === 'Pescoço')?.value;
+      const hip = lastMeasurement.values?.find(v => v.type.name === 'Quadril')?.value;
+      const waistFinal = waist || lastMeasurement.waist;
+
+      return calculateBodyFat(
+        selectedStudent.gender,
+        waistFinal || 0,
+        neck || 0,
+        hip || 0,
+        selectedStudent.height
+      );
+    } else {
+      // 7-site
+      const getVal = (name: string) => lastMeasurement.values?.find(v => v.type.name === name || v.type.name === `Dobra Cutânea - ${name}`)?.value || 0;
+
+      // Mapping simple names to possible DB names (adjust if seed names are different)
+      const chest = getVal('Peitoral') || getVal('Peito'); // 'Dobra Cutânea - Peitoral' or legacy 'Peito'
+      const axilla = getVal('Axilar Média');
+      const tricep = getVal('Tríceps');
+      const subscapular = getVal('Subescapular');
+      const abdomen = getVal('Abdominal') || getVal('Abdômen'); // check seed
+      const suprailiac = getVal('Suprailíaca');
+      const thigh = getVal('Coxa') || getVal('Coxas');
+
+      // Age is needed. If not birthDate, maybe default or cannot calc?
+      // Using birthDate from student/user
+      const birthDate = selectedStudent.birthDate ? new Date(selectedStudent.birthDate) : null;
+      let age = 25; // Default fallback? Or return null?
+      if (birthDate) {
+        const today = new Date();
+        age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+      } else {
+        return null; // Cannot calc without age
+      }
+
+      return calculateBodyFat7Site(
+        selectedStudent.gender,
+        { chest, axilla, tricep, subscapular, abdomen, suprailiac, thigh },
+        age
+      );
+    }
+  };
+
+  const bodyFat = calculateUserBodyFat();
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -94,6 +191,7 @@ export default function DashboardPage() {
     const fetchData = async () => {
       if (status !== 'authenticated') return;
 
+      setIsLoading(true);
       try {
         console.log('Iniciando busca de dados no dashboard...', { selectedStudentId });
 
@@ -140,6 +238,8 @@ export default function DashboardPage() {
         }
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -177,40 +277,24 @@ export default function DashboardPage() {
     const labels = sortedMeasurements.map(m => formatDate(m.date));
 
     const data = sortedMeasurements.map(m => {
-      switch (selectedMetric) {
-        case 'weight':
-          return m.weight;
-        case 'chest':
-          return m.chest || null;
-        case 'waist':
-          return m.waist || null;
-        case 'hips':
-          return m.hips || null;
-        case 'biceps':
-          return m.biceps || null;
-        case 'thighs':
-          return m.thighs || null;
-        default:
-          return m.weight;
+      if (selectedMetric === 'weight') {
+        return m.weight;
       }
-    }).filter(value => value !== null);
+      const val = m.values.find(v => v.type.id === selectedMetric || v.type.name === selectedMetric); // Support both ID and Name for legacy/hybrid
+      // Fallback for hardcoded fields during migration if needed, but 'values' is preferred
+      return val ? val.value : null;
+    });
 
     console.log('Dados do gráfico preparados:', { labels, data });
 
-    const metricLabels = {
-      weight: 'Peso (kg)',
-      chest: 'Peito (cm)',
-      waist: 'Cintura (cm)',
-      hips: 'Quadril (cm)',
-      biceps: 'Bíceps (cm)',
-      thighs: 'Coxas (cm)',
-    };
+    const selectedType = measurementTypes.find(t => t.id === selectedMetric);
+    const label = selectedMetric === 'weight' ? 'Peso (kg)' : `${selectedType?.name || 'Valor'} (cm)`;
 
     return {
       labels,
       datasets: [
         {
-          label: metricLabels[selectedMetric as keyof typeof metricLabels],
+          label,
           data,
           borderColor: 'rgb(75, 192, 192)',
           backgroundColor: 'rgba(75, 192, 192, 0.5)',
@@ -243,12 +327,8 @@ export default function DashboardPage() {
     },
   };
 
-  if (status === 'loading') {
-    return (
-      <Container maxW="container.xl" py={10}>
-        <Text>Carregando...</Text>
-      </Container>
-    );
+  if (status === 'loading' || isLoading) {
+    return <DashboardLoading />;
   }
 
   return (
@@ -262,7 +342,7 @@ export default function DashboardPage() {
         </Box>
 
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
-          <Box p={6} bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" boxShadow="sm">
+          <Box p={6} bg={cardBg} borderRadius="lg" boxShadow="sm">
             <Heading size="md" mb={4}>Peso Atual</Heading>
             <Text fontSize="2xl" fontWeight="bold">
               {lastMeasurement ? `${lastMeasurement.weight} kg` : 'N/A'}
@@ -280,7 +360,7 @@ export default function DashboardPage() {
             shadow="base"
             borderColor="gray.200"
             rounded="lg"
-            bg={useColorModeValue('white', 'gray.800')}
+            bg={cardBg}
           >
             <StatLabel>Última Medição</StatLabel>
             <StatNumber>
@@ -303,7 +383,7 @@ export default function DashboardPage() {
             shadow="base"
             borderColor="gray.200"
             rounded="lg"
-            bg={useColorModeValue('white', 'gray.800')}
+            bg={cardBg}
           >
             <StatLabel>Última Foto</StatLabel>
             <StatNumber>
@@ -323,7 +403,68 @@ export default function DashboardPage() {
           </Stat>
         </SimpleGrid>
 
-        <Box p={4} bg={useColorModeValue('white', 'gray.800')} borderRadius="lg" boxShadow="sm">
+        {/* Health Metrics Section */}
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+          <Box p={6} bg={cardBg} borderRadius="lg" boxShadow="sm">
+            <Heading size="md" mb={4}>IMC (Índice de Massa Corporal)</Heading>
+            <SimpleGrid columns={2} spacing={4}>
+              <Box>
+                <Text color="gray.500" fontSize="sm">Atual</Text>
+                <Text fontSize="3xl" fontWeight="bold">
+                  {bmi || '--'}
+                </Text>
+              </Box>
+              <Box>
+                <Text color="gray.500" fontSize="sm">Classificação</Text>
+                <Text fontSize="lg" fontWeight="medium" color={bmi && bmi > 24.9 ? 'orange.500' : 'green.500'}>
+                  {bmiCategory || '--'}
+                </Text>
+              </Box>
+            </SimpleGrid>
+          </Box>
+
+          <Box p={6} bg={cardBg} borderRadius="lg" boxShadow="sm">
+            <Heading size="md" mb={4}>% de Gordura Aproximado</Heading>
+            <Box mb={3} display="flex" alignItems="center">
+              <Select size="sm" value={bodyFatMethod} onChange={(e) => setBodyFatMethod(e.target.value as any)} mr={2}>
+                <option value="navy">Método da Marinha (Pescoço/Cintura)</option>
+                <option value="7site">7 Dobras (Jackson-Pollock)</option>
+              </Select>
+              <Tooltip
+                label={
+                  bodyFatMethod === 'navy'
+                    ? "O Método da Marinha dos EUA estima a gordura corporal usando medidas de circunferência (pescoço, cintura e altura). É um método prático que não exige equipamentos especiais."
+                    : "O Protocolo de 7 Dobras de Jackson & Pollock usa um adipômetro para medir a espessura de dobras cutâneas em 7 locais do corpo. É geralmente mais preciso para pessoas ativas."
+                }
+                fontSize="md"
+                p={3}
+                rounded="md"
+                hasArrow
+              >
+                <InfoOutlineIcon color="gray.400" cursor="help" />
+              </Tooltip>
+            </Box>
+            <Box>
+              <Text color="gray.500" fontSize="sm">
+                {bodyFatMethod === 'navy' ? 'Estimativa (Método da Marinha)' : 'Jackson-Pollock 7 Dobras'}
+              </Text>
+              <Text fontSize="3xl" fontWeight="bold">
+                {bodyFat ? `${bodyFat}%` : '--'}
+              </Text>
+              {!bodyFat && (
+                <Text fontSize="xs" color="gray.400" mt={2}>
+                  {bodyFatMethod === 'navy'
+                    ? 'Requer: Altura, Pescoço e Cintura (e Quadril p/ mulheres).'
+                    : 'Requer: Idade e as 7 dobras (Peitoral, Axila, Tríceps, Subescapular, Abdomem, Suprailíaca, Coxa).'}
+                </Text>
+              )}
+            </Box>
+          </Box>
+        </SimpleGrid>
+
+
+
+        <Box p={4} bg={cardBg} borderRadius="lg" boxShadow="sm">
           <Box mb={4}>
             <Select
               value={selectedMetric}
@@ -331,11 +472,11 @@ export default function DashboardPage() {
               maxW="200px"
             >
               <option value="weight">Peso</option>
-              <option value="chest">Peito</option>
-              <option value="waist">Cintura</option>
-              <option value="hips">Quadril</option>
-              <option value="biceps">Bíceps</option>
-              <option value="thighs">Coxas</option>
+              {measurementTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
             </Select>
           </Box>
           <Line options={chartOptions} data={getChartData()} />
@@ -347,7 +488,7 @@ export default function DashboardPage() {
             shadow="base"
             borderColor="gray.200"
             rounded="lg"
-            bg={useColorModeValue('white', 'gray.800')}
+            bg={cardBg}
           >
             <Heading size="md" mb={4}>
               Última Foto
@@ -359,7 +500,8 @@ export default function DashboardPage() {
                 borderRadius="lg"
                 width="100%"
                 height="300px"
-                objectFit="cover"
+                objectFit="contain"
+                bg="black"
               />
             ) : (
               <Text color="gray.600">Nenhuma foto registrada</Text>
@@ -371,7 +513,7 @@ export default function DashboardPage() {
             shadow="base"
             borderColor="gray.200"
             rounded="lg"
-            bg={useColorModeValue('white', 'gray.800')}
+            bg={cardBg}
           >
             <Heading size="md" mb={4}>
               Próximos Passos
@@ -389,4 +531,4 @@ export default function DashboardPage() {
       </VStack>
     </Container>
   );
-} 
+}
