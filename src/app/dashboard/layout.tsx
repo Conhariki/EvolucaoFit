@@ -31,10 +31,11 @@ import { useStudent } from '@/contexts/StudentContext';
 interface NavLinkProps {
   children: React.ReactNode;
   href: string;
+  onClick?: () => void;
 }
 
-const NavLink = ({ children, href }: NavLinkProps) => (
-  <Link href={href} passHref>
+const NavLink = ({ children, href, onClick }: NavLinkProps) => (
+  <Link href={href} passHref onClick={onClick}>
     <Text
       px={2}
       py={1}
@@ -156,19 +157,19 @@ export default function DashboardLayout({
         {isOpen ? (
           <Box pb={4} display={{ md: 'none' }}>
             <Stack as={'nav'} spacing={4}>
-              <NavLink href="/dashboard">Dashboard</NavLink>
-              <NavLink href="/dashboard/measurements">Medições</NavLink>
-              <NavLink href="/dashboard/photos">Fotos</NavLink>
-              <NavLink href="/dashboard/photos/monthly-compare">Comparação Mensal</NavLink>
+              <NavLink href="/dashboard" onClick={onClose}>Dashboard</NavLink>
+              <NavLink href="/dashboard/measurements" onClick={onClose}>Medições</NavLink>
+              <NavLink href="/dashboard/photos" onClick={onClose}>Fotos</NavLink>
+              <NavLink href="/dashboard/photos/monthly-compare" onClick={onClose}>Comparação Mensal</NavLink>
 
               {session?.user?.role === 'PROFESSOR' && (
-                <NavLink href="/dashboard/students">Alunos</NavLink>
+                <NavLink href="/dashboard/students" onClick={onClose}>Alunos</NavLink>
               )}
 
               {session?.user?.email === 'felipe.conhariki@gmail.com' && (
                 <>
-                  <NavLink href="/dashboard/measurement-types">Tipos de Medidas</NavLink>
-                  <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
+                  <NavLink href="/dashboard/measurement-types" onClick={onClose}>Tipos de Medidas</NavLink>
+                  <NavLink href="/dashboard/admin/register-professor" onClick={onClose}>Registrar Professor</NavLink>
                 </>
               )}
             </Stack>

@@ -17,11 +17,15 @@ import {
   Link,
   Flex,
   useColorModeValue,
+  useColorMode,
+  IconButton,
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
 import { FcGoogle } from 'react-icons/fc';
+import { MoonIcon, SunIcon } from '@chakra-ui/icons';
 
 export default function LoginPage() {
+  const { colorMode, toggleColorMode } = useColorMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -63,13 +67,37 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <Container maxW="container.sm" py={10}>
-      <VStack spacing={8}>
-        <Heading>Bem-vindo ao EvoluçãoFit</Heading>
-        <Text>Faça login para acessar sua conta</Text>
+  const handleGoogleLogin = async () => {
+    try {
+      await signIn('google', { callbackUrl: '/dashboard' });
+    } catch (error) {
+      console.error('Erro ao conectar com Google:', error);
+      toast({
+        title: 'Erro de conexão',
+        description: 'Não foi possível iniciar o login com Google.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
 
-        <Box w="100%" p={8} borderWidth={1} borderRadius="lg" boxShadow="lg">
+  return (
+    <Container maxW="container.sm" py={10} minH="100vh" display="flex" alignItems="center" justifyContent="center" position="relative">
+      <Box position="absolute" top={4} right={4}>
+        <IconButton
+          aria-label="Alternar tema"
+          icon={colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
+          onClick={toggleColorMode}
+          variant="ghost"
+          size="lg"
+        />
+      </Box>
+      <VStack spacing={8} w="full">
+        <Heading color={useColorModeValue('gray.800', 'white')}>Bem-vindo ao EvoluçãoFit</Heading>
+        <Text color={useColorModeValue('gray.600', 'gray.300')}>Faça login para acessar sua conta</Text>
+
+        <Box w="100%" p={8} borderWidth={1} borderRadius="lg" boxShadow="lg" bg={useColorModeValue('white', 'gray.700')}>
           <form onSubmit={handleSubmit}>
             <VStack spacing={4}>
               <FormControl isRequired>
@@ -107,7 +135,7 @@ export default function LoginPage() {
           <Box mt={6}>
             <Box position="relative" padding="4">
               <Box position="absolute" top="50%" left="0" right="0" borderTop="1px" borderColor="gray.200" />
-              <Box position="relative" bg="white" px="4" textAlign="center" color="gray.500" fontSize="sm">
+              <Box position="relative" bg={useColorModeValue('white', 'gray.700')} px="4" textAlign="center" color="gray.500" fontSize="sm">
                 OU
               </Box>
             </Box>
@@ -116,19 +144,12 @@ export default function LoginPage() {
               w={'full'}
               variant={'outline'}
               leftIcon={<FcGoogle />}
-              onClick={() => signIn('google')}
+              onClick={handleGoogleLogin}
             >
               Entrar com Google
             </Button>
           </Box>
         </Box >
-
-        <Text>
-          Não tem uma conta?{' '}
-          <Link href="#" color="gray.500" cursor="not-allowed" title="Entre em contato com o administrador">
-            Contate o administrador
-          </Link>
-        </Text>
       </VStack >
     </Container >
   );

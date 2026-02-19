@@ -82,10 +82,10 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
   onDelete: (id: string) => void;
   openCropper: (file: File | null, angle?: string, date?: string) => void;
 }) {
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     accept: { 'image/*': ['.jpeg', '.jpg', '.png'] },
     maxFiles: 1,
-    noClick: false,
+    noClick: true, // We will handle click manually on the button to avoid double triggers
     noKeyboard: false,
     onDrop: (acceptedFiles) => {
       if (acceptedFiles.length > 0) openCropper(acceptedFiles[0], angle, date);
@@ -112,7 +112,7 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
         },
       }}
     >
-      <input {...getInputProps()} />
+      <input {...getInputProps({ capture: 'environment' } as any)} />
       {photo ? (
         <Box position="relative">
           <Image
@@ -182,7 +182,7 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
             borderRadius="full"
             onClick={(e) => {
               e.stopPropagation();
-              openCropper(null, angle, date);
+              open();
             }}
           />
         </Box>
