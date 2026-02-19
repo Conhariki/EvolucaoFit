@@ -56,6 +56,11 @@ async function restore() {
 
     // 5. Restore Photos (Upload to Cloudinary)
     console.log(`Processing ${data.photos.length} photos...`);
+
+    // Map to store file hash -> cloudinary URL to avoid re-uploading same file
+    const fileHashMap = new Map();
+    const crypto = require('crypto');
+
     for (const photo of data.photos) {
         const existing = await prisma.photo.findUnique({ where: { id: photo.id } });
 
@@ -63,10 +68,6 @@ async function restore() {
         let needsUpload = false;
 
         // Check if we need to upload
-        // If it's a local path, we definitely need to upload.
-        // If it exists in DB but is local, we need to upload and update.
-        // If it doesn't exist, we upload and create.
-
         if (photo.url.startsWith('/uploads')) {
             // Check if already uploaded in existing record?
             if (existing && !existing.url.startsWith('/uploads')) {
@@ -80,17 +81,26 @@ async function restore() {
         if (needsUpload) {
             const localPath = path.join(process.cwd(), 'public', photo.url);
             if (fs.existsSync(localPath)) {
-                console.log(`Uploading ${photo.url} to Cloudinary...`);
-                try {
-                    const result = await cloudinary.uploader.upload(localPath, {
-                        folder: 'evolucao-fit/photos',
-                        public_id: `${photo.userId}-${new Date(photo.date).getTime()}`,
-                        resource_type: 'image'
-                    });
-                    finalUrl = result.secure_url;
-                } catch (err) {
-                    console.error(`Failed to upload ${photo.url}:`, err.message);
-                    // If upload fails, we keep local URL, but it won't work in prod.
+                // Calculate file hash
+                const fileBuffer = fs.readFileSync(localPath);
+                const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+
+                if (fileHashMap.has(fileHash)) {
+                    console.log(`Skipping upload for ${photo.url} (duplicate content), reusing URL...`);
+                    finalUrl = fileHashMap.get(fileHash);
+                } else {
+                    console.log(`Uploading ${photo.url} to Cloudinary...`);
+                    try {
+                        const result = await cloudinary.uploader.upload(localPath, {
+                            folder: 'evolucao-fit/photos',
+                            public_id: `${photo.userId}-${new Date(photo.date).getTime()}-${fileHash.substring(0, 6)}`,
+                            resource_type: 'image'
+                        });
+                        finalUrl = result.secure_url;
+                        fileHashMap.set(fileHash, finalUrl);
+                    } catch (err) {
+                        console.error(`Failed to upload ${photo.url}:`, err.message);
+                    }
                 }
             } else {
                 console.warn(`File not found locally: ${localPath}`);

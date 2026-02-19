@@ -92,14 +92,16 @@ export default function DashboardLayout({
               <NavLink href="/dashboard/measurements">Medições</NavLink>
               <NavLink href="/dashboard/photos">Fotos</NavLink>
               <NavLink href="/dashboard/photos/monthly-compare">Comparação Mensal</NavLink>
+
               {session?.user?.role === 'PROFESSOR' && (
+                <NavLink href="/dashboard/students">Alunos</NavLink>
+              )}
+
+              {session?.user?.email === 'felipe.conhariki@gmail.com' && (
                 <>
                   <NavLink href="/dashboard/measurement-types">Tipos de Medidas</NavLink>
-                  <NavLink href="/dashboard/students">Alunos</NavLink>
+                  <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
                 </>
-              )}
-              {session?.user?.email === 'felipe.conhariki@gmail.com' && (
-                <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
               )}
             </HStack>
           </HStack>
@@ -144,6 +146,7 @@ export default function DashboardLayout({
                 />
               </MenuButton>
               <MenuList>
+                <MenuItem as={Link} href="/dashboard/profile">Perfil</MenuItem>
                 <MenuItem onClick={() => signOut()}>Sair</MenuItem>
               </MenuList>
             </Menu>
@@ -157,14 +160,16 @@ export default function DashboardLayout({
               <NavLink href="/dashboard/measurements">Medições</NavLink>
               <NavLink href="/dashboard/photos">Fotos</NavLink>
               <NavLink href="/dashboard/photos/monthly-compare">Comparação Mensal</NavLink>
+
               {session?.user?.role === 'PROFESSOR' && (
+                <NavLink href="/dashboard/students">Alunos</NavLink>
+              )}
+
+              {session?.user?.email === 'felipe.conhariki@gmail.com' && (
                 <>
                   <NavLink href="/dashboard/measurement-types">Tipos de Medidas</NavLink>
-                  <NavLink href="/dashboard/students">Alunos</NavLink>
+                  <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
                 </>
-              )}
-              {session?.user?.email === 'felipe.conhariki@gmail.com' && (
-                <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
               )}
             </Stack>
           </Box>
