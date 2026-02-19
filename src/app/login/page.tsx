@@ -125,8 +125,8 @@ export default function LoginPage() {
 
         <Text>
           Não tem uma conta?{' '}
-          <Link as={NextLink} href="/register" color="blue.500">
-            Registre-se
+          <Link href="#" color="gray.500" cursor="not-allowed" title="Entre em contato com o administrador">
+            Contate o administrador
           </Link>
         </Text>
       </VStack >

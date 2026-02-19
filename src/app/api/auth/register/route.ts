@@ -6,6 +6,20 @@ export async function POST(req: Request) {
   try {
     const { name, email, password, role, birthDate, height, phone, address } = await req.json();
 
+    // Verify session - only admin can register new users
+    // Import getServerSession and authOptions dynamically or from lib
+    const { getServerSession } = await import('next-auth/next');
+    const { authOptions } = await import('@/lib/auth');
+
+    const session = await getServerSession(authOptions);
+
+    if (session?.user?.email !== 'felipe.conhariki@gmail.com') {
+      return NextResponse.json(
+        { message: 'Apenas administradores podem registrar novos usuários.' },
+        { status: 403 }
+      );
+    }
+
     // Validação básica
     if (!name || !email || !password || !role) {
       return NextResponse.json(

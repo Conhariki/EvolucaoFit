@@ -8,7 +8,7 @@ import { StudentProvider } from '@/contexts/StudentContext';
 
 const theme = extendTheme({
   config: {
-    initialColorMode: 'dark',
+    initialColorMode: typeof window !== 'undefined' ? localStorage.getItem('chakra-ui-color-mode') || 'dark' : 'dark',
     useSystemColorMode: false,
   },
   styles: {

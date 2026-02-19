@@ -10,7 +10,7 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType>({
   isDarkMode: true,
-  toggleTheme: () => {},
+  toggleTheme: () => { },
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -18,24 +18,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    // Carregar preferência do tema do localStorage
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
-      setColorMode(savedTheme);
-    } else {
-      // Se não houver preferência salva, usar dark como padrão
-      setIsDarkMode(true);
-      setColorMode('dark');
-      localStorage.setItem('theme', 'dark');
-    }
-  }, [setColorMode]);
+    // Chakra UI manages localStorage automatically with the key 'chakra-ui-color-mode'
+    // We just need to sync our state with Chakra's system
+    setIsDarkMode(colorMode === 'dark');
+  }, [colorMode]);
 
   const toggleTheme = () => {
-    const newTheme = isDarkMode ? 'light' : 'dark';
-    setIsDarkMode(!isDarkMode);
+    // toggleColorMode handles the switch and localStorage update
+    const newTheme = colorMode === 'dark' ? 'light' : 'dark';
     setColorMode(newTheme);
-    localStorage.setItem('theme', newTheme);
+    setIsDarkMode(newTheme === 'dark');
   };
 
   return (

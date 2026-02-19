@@ -23,6 +23,9 @@ model User {
   professorId   String?
   professor     User?         @relation("ProfessorAlunos", fields: [professorId], references: [id])
   alunos        User[]        @relation("ProfessorAlunos")
+
+  resetToken          String?
+  resetTokenExpires   DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   emailVerified DateTime?

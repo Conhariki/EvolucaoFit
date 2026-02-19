@@ -98,6 +98,9 @@ export default function DashboardLayout({
                   <NavLink href="/dashboard/students">Alunos</NavLink>
                 </>
               )}
+              {session?.user?.email === 'felipe.conhariki@gmail.com' && (
+                <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
+              )}
             </HStack>
           </HStack>
           <Flex alignItems={'center'} gap={4}>
@@ -159,6 +162,9 @@ export default function DashboardLayout({
                   <NavLink href="/dashboard/measurement-types">Tipos de Medidas</NavLink>
                   <NavLink href="/dashboard/students">Alunos</NavLink>
                 </>
+              )}
+              {session?.user?.email === 'felipe.conhariki@gmail.com' && (
+                <NavLink href="/dashboard/admin/register-professor">Registrar Professor</NavLink>
               )}
             </Stack>
           </Box>

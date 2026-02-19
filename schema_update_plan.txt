@@ -1,0 +1,10 @@
+// This schema file is modified to add resetToken fields to User model
+// We need to append these fields to the User model in prisma/schema.prisma
+
+// INSTRUCTIONS for Agent:
+// Use replace_file_content to add these fields to the User model in the actual file.
+
+/*
+  resetToken          String?
+  resetTokenExpires   DateTime?
+*/
