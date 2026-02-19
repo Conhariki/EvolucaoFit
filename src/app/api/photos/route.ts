@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
-import { authOptions } from '../auth/[...nextauth]/route';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
-import { v4 as uuidv4 } from 'uuid';
-import { unlink } from 'fs/promises';
+import { authOptions } from '@/lib/auth';
+import cloudinary from '@/lib/cloudinary';
 
 export async function POST(request: Request) {
   try {
@@ -52,37 +48,33 @@ export async function POST(request: Request) {
       targetUserId = studentId;
     }
 
-    // Gera um nome único para o arquivo
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
-
-    // Define o caminho para salvar o arquivo
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-
-    // Garantir que o diretório existe
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    const filePath = join(uploadDir, fileName);
-    console.log('Tentando salvar arquivo em:', filePath);
-
-    // Converte o arquivo para buffer e salva
+    // Converte o arquivo para buffer e depois para base64 para envio
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    const fileBase64 = `data:${file.type};base64,${buffer.toString('base64')}`;
+
+    console.log('Enviando para Cloudinary...');
+
+    // Upload para o Cloudinary
+    const result = await cloudinary.uploader.upload(fileBase64, {
+      folder: 'evolucao-fit/photos',
+      public_id: `${targetUserId}-${Date.now()}`,
+      resource_type: 'image',
+    });
+
+    console.log('Upload concluído:', result.secure_url);
 
     // Salva a referência no banco de dados
     const photo = await prisma.photo.create({
       data: {
         userId: targetUserId,
-        url: `/uploads/${fileName}`,
+        url: result.secure_url,
         angle: angle as any,
         date: new Date(date),
       },
     });
 
-    console.log('Foto criada:', photo);
+    console.log('Foto criada no banco:', photo);
 
     return NextResponse.json(photo);
   } catch (error) {
@@ -173,22 +165,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Determine target user (professor logic)
-    let targetUserId = session.user.id;
-    // For bulk delete by date, we might need studentId if professor is acting
-    // But usually handleDeleteDate is called in context of a student if selected.
-    // The current frontend implementation of handleDeleteDate doesn't pass studentId in query params,
-    // only date. This might be an issue if a professor is viewing a student.
-    // However, the GET request uses studentId.
-    // Let's check how we can know the studentId here.
-    // If it's bulk delete, we might delete photos from the wrong user if we just use session.user.id
-    // But let's look at how GET does it. It reads studentId from searchParams.
-    // The frontend sends axios.delete(\`/api/photos?date=\${encodeURIComponent(date)}\`);
-    // It does NOT send studentId.
-    // We should probably rely on finding the photos first to verify ownership.
-
     if (id) {
-      // Single photo deletion logic (existing)
       const existingPhoto = await prisma.photo.findUnique({
         where: { id },
       });
@@ -220,13 +197,18 @@ export async function DELETE(request: Request) {
         );
       }
 
-      const filePath = join(process.cwd(), 'public', existingPhoto.url);
-      try {
-        if (existsSync(filePath)) {
-          await unlink(filePath);
+      // Tenta remover do Cloudinary
+      if (existingPhoto.url.includes('cloudinary')) {
+        try {
+          const urlParts = existingPhoto.url.split('/');
+          const filename = urlParts[urlParts.length - 1]; // "user-timestamp.jpg"
+          const filenameWithoutExt = filename.split('.')[0]; // "user-timestamp"
+          const publicId = `evolucao-fit/photos/${filenameWithoutExt}`;
+
+          await cloudinary.uploader.destroy(publicId);
+        } catch (error) {
+          console.error('Erro ao remover do Cloudinary:', error);
         }
-      } catch (error) {
-        console.error('Erro ao remover arquivo físico:', error);
       }
 
       await prisma.photo.delete({
@@ -237,7 +219,6 @@ export async function DELETE(request: Request) {
 
     } else if (dateStr) {
       // Bulk deletion by date
-      // Format expected: dd/mm/yyyy
       const [day, month, year] = dateStr.split('/').map(Number);
 
       if (!day || !month || !year) {
@@ -246,15 +227,6 @@ export async function DELETE(request: Request) {
 
       const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
       const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-
-      console.log('Deleting photos for date range:', startDate, endDate);
-
-      // Find photos in this range
-      // We need to be careful about WHOSE photos we are deleting.
-      // If we don't have studentId, we can only delete photos of the logged in user OR
-      // we need to find photos and verify permissions for each (or collectively).
-
-      // Strict approach: Find photos that match the date AND (userId is session.user.id OR userId is a student of session.user.id)
 
       const photosToDelete = await prisma.photo.findMany({
         where: {
@@ -266,10 +238,8 @@ export async function DELETE(request: Request) {
       });
 
       const deletedIds = [];
-      const errors = [];
 
       for (const photo of photosToDelete) {
-        // Check permission for each photo
         const isOwner = photo.userId === session.user.id;
         let isProfessor = false;
 
@@ -284,17 +254,20 @@ export async function DELETE(request: Request) {
         }
 
         if (isOwner || isProfessor) {
-          // Delete file
-          const filePath = join(process.cwd(), 'public', photo.url);
-          try {
-            if (existsSync(filePath)) {
-              await unlink(filePath);
+          // Remove do Cloudinary
+          if (photo.url.includes('cloudinary')) {
+            try {
+              const urlParts = photo.url.split('/');
+              const filename = urlParts[urlParts.length - 1];
+              const filenameWithoutExt = filename.split('.')[0];
+              const publicId = `evolucao-fit/photos/${filenameWithoutExt}`;
+
+              await cloudinary.uploader.destroy(publicId);
+            } catch (error) {
+              console.error('Erro ao remover do Cloudinary:', error);
             }
-          } catch (error) {
-            console.error(`Erro ao remover arquivo físico ${photo.id}:`, error);
           }
 
-          // Delete db
           await prisma.photo.delete({ where: { id: photo.id } });
           deletedIds.push(photo.id);
         }
@@ -339,7 +312,6 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Verify permission: owner of the photo OR professor linked to the student
     const existingPhoto = await prisma.photo.findUnique({
       where: { id },
     });
@@ -361,7 +333,6 @@ export async function PUT(request: Request) {
           professorId: session.user.id,
         },
       });
-      console.log('Verifying professor update. Student found:', student);
       if (student) isProfessor = true;
     }
 
@@ -376,39 +347,35 @@ export async function PUT(request: Request) {
     if (angle) dataToUpdate.angle = angle;
     if (date) dataToUpdate.date = new Date(date);
 
-    // Only process file if it was provided
     if (file && file.size > 0) {
-      // Remove o arquivo físico antigo
-      const oldFilePath = join(process.cwd(), 'public', existingPhoto.url);
-      try {
-        if (existsSync(oldFilePath)) {
-          await unlink(oldFilePath);
+      // Remove a foto antiga do Cloudinary
+      if (existingPhoto.url.includes('cloudinary')) {
+        try {
+          const urlParts = existingPhoto.url.split('/');
+          const filename = urlParts[urlParts.length - 1];
+          const filenameWithoutExt = filename.split('.')[0];
+          const publicId = `evolucao-fit/photos/${filenameWithoutExt}`;
+
+          await cloudinary.uploader.destroy(publicId);
+        } catch (error) {
+          console.error('Erro ao remover arquivo antigo do Cloudinary:', error);
         }
-      } catch (error) {
-        console.error('Erro ao remover arquivo antigo:', error);
       }
 
-      // Gera um nome único para o novo arquivo
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExtension}`;
-      const uploadDir = join(process.cwd(), 'public', 'uploads');
-
-      // Garantir que o diretório existe
-      if (!existsSync(uploadDir)) {
-        await mkdir(uploadDir, { recursive: true });
-      }
-
-      const filePath = join(uploadDir, fileName);
-
-      // Converte o arquivo para buffer e salva
+      // Upload da nova foto
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
+      const fileBase64 = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-      dataToUpdate.url = `/uploads/${fileName}`;
+      const result = await cloudinary.uploader.upload(fileBase64, {
+        folder: 'evolucao-fit/photos',
+        public_id: `${existingPhoto.userId}-${Date.now()}`,
+        resource_type: 'image',
+      });
+
+      dataToUpdate.url = result.secure_url;
     }
 
-    // Atualiza a referência no banco de dados
     const updatedPhoto = await prisma.photo.update({
       where: { id },
       data: dataToUpdate,
@@ -424,4 +391,4 @@ export async function PUT(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

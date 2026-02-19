@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -55,6 +55,9 @@ export default function StudentsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [deleteStudentId, setDeleteStudentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const cancelUnlinkRef = useRef(null);
+  const cancelRegisterRef = useRef(null);
+  const cancelEditRef = useRef(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -392,7 +395,7 @@ export default function StudentsPage() {
         {/* Modal de Desvínculo */}
         <AlertDialog
           isOpen={isOpen}
-          leastDestructiveRef={undefined}
+          leastDestructiveRef={cancelUnlinkRef}
           onClose={onClose}
         >
           <AlertDialogOverlay>
@@ -404,7 +407,7 @@ export default function StudentsPage() {
                 Tem certeza que deseja desvincular este aluno?
               </AlertDialogBody>
               <AlertDialogFooter>
-                <Button onClick={onClose}>Cancelar</Button>
+                <Button ref={cancelUnlinkRef} onClick={onClose}>Cancelar</Button>
                 <Button colorScheme="red" onClick={handleUnlink} ml={3}>
                   Desvincular
                 </Button>
@@ -416,7 +419,7 @@ export default function StudentsPage() {
         {/* Modal de Cadastro de Novo Aluno */}
         <AlertDialog
           isOpen={isRegisterOpen}
-          leastDestructiveRef={undefined}
+          leastDestructiveRef={cancelRegisterRef}
           onClose={onRegisterClose}
         >
           <AlertDialogOverlay>
@@ -465,7 +468,7 @@ export default function StudentsPage() {
                 </VStack>
               </AlertDialogBody>
               <AlertDialogFooter>
-                <Button onClick={onRegisterClose}>Cancelar</Button>
+                <Button ref={cancelRegisterRef} onClick={onRegisterClose}>Cancelar</Button>
                 <Button colorScheme="green" onClick={handleRegister} ml={3} isLoading={isLoading}>
                   Cadastrar e Vincular
                 </Button>
@@ -477,7 +480,7 @@ export default function StudentsPage() {
         {/* Modal de Edição de Aluno */}
         <AlertDialog
           isOpen={isEditOpen}
-          leastDestructiveRef={undefined}
+          leastDestructiveRef={cancelEditRef}
           onClose={onEditClose}
         >
           <AlertDialogOverlay>
@@ -517,7 +520,7 @@ export default function StudentsPage() {
                 </VStack>
               </AlertDialogBody>
               <AlertDialogFooter>
-                <Button onClick={onEditClose}>Cancelar</Button>
+                <Button ref={cancelEditRef} onClick={onEditClose}>Cancelar</Button>
                 <Button colorScheme="blue" onClick={handleSaveEdit} ml={3} isLoading={isLoading}>
                   Salvar
                 </Button>

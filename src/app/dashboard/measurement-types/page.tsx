@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -57,6 +57,7 @@ export default function MeasurementTypesPage() {
   const [types, setTypes] = useState<MeasurementType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const cancelRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -288,7 +289,7 @@ export default function MeasurementTypesPage() {
 
         <AlertDialog
           isOpen={isDeleteOpen}
-          leastDestructiveRef={undefined}
+          leastDestructiveRef={cancelRef}
           onClose={onDeleteClose}
         >
           <AlertDialogOverlay>
@@ -296,11 +297,15 @@ export default function MeasurementTypesPage() {
               <AlertDialogHeader fontSize="lg" fontWeight="bold">
                 Excluir Tipo de Medida
               </AlertDialogHeader>
+
               <AlertDialogBody>
                 Tem certeza que deseja excluir este tipo de medida? Esta ação não pode ser desfeita.
               </AlertDialogBody>
+
               <AlertDialogFooter>
-                <Button onClick={onDeleteClose}>Cancelar</Button>
+                <Button ref={cancelRef} onClick={onDeleteClose}>
+                  Cancelar
+                </Button>
                 <Button colorScheme="red" onClick={handleDelete} ml={3}>
                   Excluir
                 </Button>
