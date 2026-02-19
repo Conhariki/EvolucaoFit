@@ -32,6 +32,10 @@ export const authOptions: NextAuthOptions = {
                     throw new Error('Usuário não encontrado');
                 }
 
+                if (!user.password) {
+                    throw new Error('Por favor, faça login com o Google');
+                }
+
                 const isPasswordValid = await compare(credentials.password, user.password);
 
                 if (!isPasswordValid) {
