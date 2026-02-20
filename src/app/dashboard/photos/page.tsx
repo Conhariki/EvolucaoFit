@@ -132,44 +132,46 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
             transform="translateX(-50%)"
             spacing={1}
             align="center"
-            opacity={hovered ? 1 : 0}
+            opacity={{ base: 1, md: hovered ? 1 : 0 }} // No mobile, sempre mostra ou melhora a interação
             transition="opacity 0.2s"
             zIndex={2}
-            bg="rgba(20,20,20,0.5)"
+            bg="rgba(20,20,20,0.6)"
             borderRadius="md"
             px={1}
             py={1}
           >
-            <IconButton
-              aria-label="Editar foto"
-              icon={<EditIcon />}
-              size="xs"
-              colorScheme="blue"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(photo);
-              }}
-            />
-            <IconButton
-              aria-label="Colar foto"
-              icon={<AttachmentIcon />}
-              size="xs"
-              colorScheme="green"
-              onClick={(e) => {
-                e.stopPropagation();
-                openCropper(null, angle, date);
-              }}
-            />
-            <IconButton
-              aria-label="Excluir foto"
-              icon={<DeleteIcon />}
-              size="xs"
-              colorScheme="red"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(photo.id);
-              }}
-            />
+            <Flex gap={1}>
+              <IconButton
+                aria-label="Substituir foto (Câmera/Galeria)"
+                icon={<AddIcon />}
+                size="xs"
+                colorScheme="teal"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  open(); // Reabre o seletor de arquivos (Dropzone)
+                }}
+              />
+              <IconButton
+                aria-label="Editar foto"
+                icon={<EditIcon />}
+                size="xs"
+                colorScheme="blue"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(photo);
+                }}
+              />
+              <IconButton
+                aria-label="Excluir foto"
+                icon={<DeleteIcon />}
+                size="xs"
+                colorScheme="red"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(photo.id);
+                }}
+              />
+            </Flex>
           </VStack>
         </Box>
       ) : (

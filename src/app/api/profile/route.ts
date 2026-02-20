@@ -63,6 +63,12 @@ export async function PUT(request: Request) {
 
         // Update Password
         if (newPassword && currentPassword) {
+            if (!user.password) {
+                return NextResponse.json(
+                    { error: 'Usuários cadastrados via Google não podem alterar a senha por aqui' },
+                    { status: 400 }
+                );
+            }
             const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
             if (!isPasswordValid) {

@@ -18,12 +18,15 @@ import {
     InputGroup,
     InputRightElement,
     IconButton,
+    Switch,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
+import { useTheme } from '@/contexts/ThemeContext';
 import axios from 'axios';
 
 export default function ProfilePage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const { isDarkMode, toggleTheme } = useTheme();
     const toast = useToast();
 
     const [name, setName] = useState('');
@@ -41,8 +44,10 @@ export default function ProfilePage() {
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        if (status === 'authenticated') {
+            fetchProfile();
+        }
+    }, [status]);
 
     const fetchProfile = async () => {
         try {
@@ -183,6 +188,18 @@ export default function ProfilePage() {
                                 onChange={(e) => setHeight(e.target.value)}
                                 placeholder="Ex: 1.75"
                             />
+                        </FormControl>
+
+                        <Divider my={2} />
+
+                        <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                            <VStack align="start" spacing={0}>
+                                <FormLabel mb="0">Tema da Interface</FormLabel>
+                                <Text fontSize="sm" color="gray.500">
+                                    Padrão atual: {isDarkMode ? 'Escuro (Dark Mode)' : 'Claro (Light Mode)'}
+                                </Text>
+                            </VStack>
+                            <Switch isChecked={isDarkMode} onChange={toggleTheme} colorScheme="blue" size="lg" />
                         </FormControl>
 
                         <Button colorScheme="blue" onClick={handleUpdateProfile} isLoading={isLoading}>

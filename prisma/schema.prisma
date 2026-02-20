@@ -20,6 +20,7 @@ model User {
   address       String?
   role          String        @default("ALUNO")
   gender        String?       @default("MASCULINO") // MASCULINO or FEMININO
+  theme         String?       @default("dark")
   professorId   String?
   professor     User?         @relation("ProfessorAlunos", fields: [professorId], references: [id])
   alunos        User[]        @relation("ProfessorAlunos")

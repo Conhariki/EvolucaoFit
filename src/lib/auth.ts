@@ -49,6 +49,7 @@ export const authOptions: NextAuthOptions = {
                     role: user.role,
                     height: user.height,
                     gender: user.gender,
+                    theme: user.theme,
                 };
             }
         })
@@ -57,12 +58,39 @@ export const authOptions: NextAuthOptions = {
         signIn: '/login',
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
+            // Se foi feita uma atualização manual pelo lado do cliente (useSession.update)
+            if (trigger === 'update' && session) {
+                if (session.theme) token.theme = session.theme;
+                if (session.role) token.role = session.role;
+                if (session.height) token.height = session.height;
+                if (session.gender) token.gender = session.gender;
+            }
+
+            // Apenas no primeiro login (user é preenchido com dados do DB/Provider)
             if (user) {
-                token.role = user.role;
-                token.id = user.id;
-                token.height = user.height;
-                token.gender = user.gender;
+                // É recomendado buscar no banco aqui para garantir dados atualizados (ex: num login Google)
+                try {
+                    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+                    if (dbUser) {
+                        token.role = dbUser.role;
+                        token.id = dbUser.id;
+                        token.height = dbUser.height;
+                        token.gender = dbUser.gender;
+                        token.theme = dbUser.theme || 'dark';
+                    } else {
+                        token.role = user.role;
+                        token.id = user.id;
+                        token.height = user.height;
+                        token.gender = user.gender;
+                        token.theme = user.theme || 'dark';
+                    }
+                } catch (e) {
+                    // Fallback seguro caso banco falhar
+                    token.role = user.role;
+                    token.id = user.id;
+                    token.theme = user.theme || 'dark';
+                }
             }
             return token;
         },
@@ -72,6 +100,7 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = token.id;
                 session.user.height = token.height;
                 session.user.gender = token.gender;
+                session.user.theme = token.theme || 'dark';
             }
             return session;
         }

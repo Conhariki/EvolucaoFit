@@ -6,6 +6,7 @@ declare module 'next-auth' {
     role: string;
     height?: number | null;
     gender?: string | null;
+    theme?: string | null;
   }
 
   interface Session {
@@ -14,6 +15,7 @@ declare module 'next-auth' {
       role: string;
       height?: number | null;
       gender?: string | null;
+      theme?: string | null;
     };
   }
 }
@@ -24,5 +26,6 @@ declare module 'next-auth/jwt' {
     role: string;
     height?: number | null;
     gender?: string | null;
+    theme?: string | null;
   }
 } 
