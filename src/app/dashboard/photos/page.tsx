@@ -942,8 +942,8 @@ export default function PhotosPage() {
           </Button>
         </Flex>
         {/* Filtro e botões de ação */}
-        <Flex justify="space-between" align="center" mb={2}>
-          <Box maxW="420px" w="100%">
+        <Flex justify="space-between" align="center" mb={2} flexWrap="wrap" gap={4}>
+          <Box maxW={{ base: '100%', md: '420px' }} w="100%">
             <FormControl>
               <FormLabel fontSize="sm" color="gray.400">Filtrar por mês/ano</FormLabel>
               <Box sx={{
@@ -987,7 +987,7 @@ export default function PhotosPage() {
               </Box>
             </FormControl>
           </Box>
-          <Flex gap={2}>
+          <Flex gap={2} flexWrap="wrap" w={{ base: '100%', md: 'auto' }} justify={{ base: 'center', md: 'flex-end' }}>
             <Button
               colorScheme="teal"
               variant="outline"
