@@ -162,6 +162,7 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
             transform="translateX(-50%)"
             spacing={1}
             align="center"
+            w="90%"
             opacity={{ base: 1, md: hovered ? 1 : 0 }} // No mobile, sempre mostra ou melhora a interação
             transition="opacity 0.2s"
             zIndex={2}
@@ -170,7 +171,7 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
             px={1}
             py={1}
           >
-            <Flex gap={1}>
+            <Flex gap={1} flexWrap="wrap" justify="center">
               {/* Câmera Tirar Foto - Mobile only */}
               <IconButton
                 aria-label="Tirar Foto com a Câmera"
@@ -1037,32 +1038,35 @@ export default function PhotosPage() {
               {/* Cabeçalho: célula vazia + datas */}
               <Box />
               {filteredDates.map(date => (
-                <Box key={date} bg={headerBg} borderRadius="lg" boxShadow="md" borderWidth={1} px={{ base: 1, md: 2 }} py={{ base: 1, md: 1 }} display="flex" alignItems="center" justifyContent="center" gap={1} minH={{ base: '32px', md: '40px' }}>
+                <Box key={date} bg={headerBg} borderRadius="lg" boxShadow="md" borderWidth={1} px={1} py={{ base: 2, md: 1 }} display="flex" flexDirection={{ base: 'column', md: 'row' }} alignItems="center" justifyContent="center" gap={{ base: 2, md: 1 }} minH={{ base: 'auto', md: '40px' }}>
                   <Checkbox
                     isChecked={selectedDates.includes(date)}
                     onChange={() => handleDateCheck(date)}
                   >
-                    <Text fontWeight="bold" fontSize={{ base: 'xs', md: 'sm' }}>
-                      {getPesoByDate(date) && `${getPesoByDate(date)} - `} {date}
+                    <Text fontWeight="bold" fontSize={{ base: 'xs', md: 'sm' }} textAlign="center" whiteSpace="normal" lineHeight="1.2">
+                      {getPesoByDate(date) && <>{getPesoByDate(date)}<br /></>}
+                      {date}
                     </Text>
                   </Checkbox>
-                  <IconButton
-                    aria-label="Editar data da coluna"
-                    icon={<CalendarIcon />}
-                    size="xs"
-                    colorScheme="yellow"
-                    onClick={() => {
-                      const [day, month, year] = date.split('/');
-                      setEditColumnDateModal({ oldDate: date, newDate: `${year}-${month}-${day}` });
-                    }}
-                  />
-                  <IconButton
-                    aria-label="Excluir data"
-                    icon={<DeleteIcon />}
-                    size="xs"
-                    colorScheme="red"
-                    onClick={() => setDeleteDate(date)}
-                  />
+                  <Flex gap={1}>
+                    <IconButton
+                      aria-label="Editar data da coluna"
+                      icon={<CalendarIcon />}
+                      size="xs"
+                      colorScheme="yellow"
+                      onClick={() => {
+                        const [day, month, year] = date.split('/');
+                        setEditColumnDateModal({ oldDate: date, newDate: `${year}-${month}-${day}` });
+                      }}
+                    />
+                    <IconButton
+                      aria-label="Excluir data"
+                      icon={<DeleteIcon />}
+                      size="xs"
+                      colorScheme="red"
+                      onClick={() => setDeleteDate(date)}
+                    />
+                  </Flex>
                 </Box>
               ))}
               {/* Linhas: cada ângulo é uma linha, primeira coluna é o label, depois as fotos */}
