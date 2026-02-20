@@ -21,6 +21,12 @@ import {
   FormLabel,
   HStack,
   Button,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
 } from '@chakra-ui/react';
 import axios from 'axios';
 import { useStudent } from '@/contexts/StudentContext';
@@ -48,6 +54,10 @@ export default function MonthlyComparePage() {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const { selectedStudentId } = useStudent();
+
+  // Controle de Modal de Zoom
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [zoomPhoto, setZoomPhoto] = useState<Photo | null>(null);
 
   const bgColor = useColorModeValue('white', 'gray.800');
   const textColor = useColorModeValue('gray.800', 'white');
@@ -267,8 +277,11 @@ export default function MonthlyComparePage() {
                                           width="auto"
                                           mx="auto"
                                           objectFit="contain"
-                                          cursor="pointer"
-                                          onClick={() => window.open(photo.url, '_blank')}
+                                          cursor="zoom-in"
+                                          onClick={() => {
+                                            setZoomPhoto(photo);
+                                            onOpen();
+                                          }}
                                         />
                                       </Box>
                                     );
@@ -338,8 +351,11 @@ export default function MonthlyComparePage() {
                                         width="auto"
                                         mx="auto"
                                         objectFit="contain"
-                                        cursor="pointer"
-                                        onClick={() => window.open(photo.url, '_blank')}
+                                        cursor="zoom-in"
+                                        onClick={() => {
+                                          setZoomPhoto(photo);
+                                          onOpen();
+                                        }}
                                       />
                                     </Box>
                                   );
@@ -367,6 +383,30 @@ export default function MonthlyComparePage() {
             </TabPanel>
           </TabPanels>
         </Tabs>
+
+        {/* Modal de Zoom */}
+        <Modal isOpen={isOpen} onClose={onClose} size="6xl" isCentered>
+          <ModalOverlay />
+          <ModalContent bg="black" maxW="90vw" maxH="90vh">
+            <ModalCloseButton color="white" zIndex={2} />
+            <ModalBody display="flex" alignItems="center" justifyContent="center" p={0}>
+              {zoomPhoto && (
+                <Image
+                  src={zoomPhoto.url}
+                  alt={zoomPhoto.angle}
+                  maxW="90vw"
+                  maxH="80vh"
+                  objectFit="contain"
+                  mx="auto"
+                  borderRadius="md"
+                  boxShadow="lg"
+                  bg="black"
+                />
+              )}
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+
       </VStack>
     </Container>
   );

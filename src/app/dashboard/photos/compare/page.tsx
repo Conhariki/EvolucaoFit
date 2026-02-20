@@ -295,6 +295,11 @@ export default function ComparePhotosPage() {
                           bg={bgColor}
                           boxShadow="none"
                           style={{ margin: 0, padding: 0, display: 'block', height: '100%', width: 'auto', maxWidth: '100%', border: 'none', boxShadow: 'none' }}
+                          cursor="zoom-in"
+                          onClick={() => {
+                            setZoomPhoto(photo);
+                            onOpen();
+                          }}
                         />
                       ) : (
                         <Text color={headerText} fontSize={{ base: 'xs', md: 'sm' }}>-</Text>
