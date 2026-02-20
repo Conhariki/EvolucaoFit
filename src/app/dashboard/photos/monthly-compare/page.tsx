@@ -139,8 +139,9 @@ export default function MonthlyComparePage() {
   // Agrupa fotos por mês/ano e ângulo (agora suporta múltiplas fotos)
   const photosByMonthAndAngle: Record<string, Record<string, Photo[]>> = {};
   photos.forEach(photo => {
-    const date = new Date(photo.date);
-    const monthYearKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    // Usando substring da data ISO (yyyy-mm-dd...) para garantir o ano original em que a foto foi cadastrada
+    // Evita shifts de UTC que empuram fotos do final do ano pro ano seguinte
+    const monthYearKey = photo.date.substring(0, 7); // extrai "YYYY-MM"
 
     if (!photosByMonthAndAngle[monthYearKey]) {
       photosByMonthAndAngle[monthYearKey] = {};
@@ -151,12 +152,8 @@ export default function MonthlyComparePage() {
     photosByMonthAndAngle[monthYearKey][photo.angle].push(photo);
   });
 
-  // Obtém todos os meses/anos disponíveis
-  const allMonthYears = Object.keys(photosByMonthAndAngle).sort((a, b) => {
-    const [ya, ma] = a.split('-').map(Number);
-    const [yb, mb] = b.split('-').map(Number);
-    return new Date(ya, ma - 1).getTime() - new Date(yb, mb - 1).getTime();
-  });
+  // Obtém todos os meses/anos disponíveis (ex: "2024-02", "2024-10") e ordena decrescentemente (mais novo primeiro)
+  const allMonthYears = Object.keys(photosByMonthAndAngle).sort((a, b) => b.localeCompare(a));
 
   // Filtra por ano se selecionado
   const filteredMonthYears = selectedYear

@@ -371,17 +371,19 @@ export default function PhotosPage() {
     console.log('Mapa de fotos:', map);
     return map;
   }, [photos]);
-  // Ordena as datas do menor para o maior, incluindo extras
+  // Ordena as datas do maior para o menor (mais recentes primeiro), incluindo extras
   const allDates = Array.from(new Set([...Object.keys(photosByDateAndAngle), ...extraDates]));
   const sortedDates = allDates.sort((a, b) => {
     const [da, ma, ya] = a.split('/').map(Number);
     const [db, mb, yb] = b.split('/').map(Number);
-    return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+    // Usando Date.UTC para evitar shifts indesejados de fuso horário local transicionando anos
+    return Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da);
   });
 
   // Gerar lista de meses/anos únicos presentes nas datas
   const allMonthYears = Array.from(new Set(sortedDates.map(date => {
     const [day, month, year] = date.split('/');
+    // String template pura para ser a chave no filtro
     return `${month}/${year}`;
   })));
   // Estado do filtro de mês/ano

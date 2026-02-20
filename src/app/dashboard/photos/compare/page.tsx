@@ -97,11 +97,12 @@ export default function ComparePhotosPage() {
     photosByDateAndAngle[date][photo.angle] = photo;
   });
 
-  // Ordena as datas selecionadas do menor para o maior
+  // Ordena as datas selecionadas do maior para o menor (Recentes) ou menor pro maior (conforme a UI preferir, vamos padronizar Decrescente base)
   const sortedDates = dates.sort((a, b) => {
     const [da, ma, ya] = a.split('/').map(Number);
     const [db, mb, yb] = b.split('/').map(Number);
-    return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+    // Usando Date.UTC com subtração para ordem recente ou Date.UTC puro
+    return Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da);
   });
 
   // Fullscreen handlers
