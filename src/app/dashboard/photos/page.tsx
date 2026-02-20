@@ -91,6 +91,11 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
       if (acceptedFiles.length > 0) openCropper(acceptedFiles[0], angle, date);
     },
   });
+
+  // Hack for mobile iOS/Android to show both Camera and Gallery options:
+  // We use the dropzone props but deliberately overwrite the accept attribute
+  const inputProps = getInputProps();
+  const mobileInputProps = { ...inputProps, accept: 'image/*' };
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -112,7 +117,7 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
         },
       }}
     >
-      <input {...getInputProps()} />
+      <input {...mobileInputProps} />
       {photo ? (
         <Box position="relative">
           <Image
@@ -254,6 +259,9 @@ export default function PhotosPage() {
       }
     },
   });
+
+  const mainInputProps = getInputProps();
+  const mainMobileInputProps = { ...mainInputProps, accept: 'image/*' };
 
   useEffect(() => {
     if (status === 'unauthenticated') {
