@@ -240,91 +240,76 @@ export default function ComparePhotosPage() {
         {loading ? (
           <Spinner size="xl" />
         ) : (
-          <Box ref={gridRef} w="100%" h={isFullscreen ? '100vh' : 'auto'} overflow={isFullscreen ? 'hidden' : 'auto'} bg={bgColor} borderRadius={isFullscreen ? '0' : 'lg'} p={0} m={0} borderWidth={isFullscreen ? 0 : 1} borderColor={borderColor}>
-            <TransformWrapper
-              initialScale={1}
-              minScale={0.3}
-              maxScale={4}
-              centerOnInit={false}
-              wheel={{ step: 0.1, disabled: !isFullscreen }}
-              panning={{ disabled: !isFullscreen }}
-              pinch={{ disabled: !isFullscreen }}
-              doubleClick={{ disabled: !isFullscreen }}
-            >
-              <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", display: "block" }}>
-                <Box w="100%" minW={{ base: `${sortedDates.length * 140 + 100}px`, md: `${sortedDates.length * 220 + 120}px` }}>
-                  <Box position="sticky" top={0} zIndex={2} bg={headerBg} boxShadow="sm" borderBottomWidth={1} borderColor={borderColor}>
-                    <Grid
-                      templateColumns={{ base: `100px repeat(${sortedDates.length}, 140px)`, md: `120px repeat(${sortedDates.length}, 220px)` }}
-                      columnGap={0}
-                      rowGap={0}
-                      alignItems="center"
-                      w="100%"
-                      m={0}
-                      p={0}
-                      minW={{ base: `${sortedDates.length * 140 + 100}px`, md: `${sortedDates.length * 220 + 120}px` }}
-                    >
-                      <Box p={0} m={0}></Box>
-                      {sortedDates.map(date => (
-                        <Box key={date} textAlign="center" fontWeight="bold" p={{ base: 1, md: 2 }} m={0} color={textColor} borderRightWidth={1} borderColor={borderColor} minH={{ base: '40px', md: '56px' }} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                          <Text fontSize={{ base: 'sm', md: 'md' }}>
-                            {getPesoByDate(date) && (
-                              <Text as="span" fontSize={{ base: 'xs', md: 'sm' }} color={headerText} fontWeight="normal">{getPesoByDate(date)} - </Text>
-                            )}
-                            {date}
-                          </Text>
-                        </Box>
-                      ))}
-                    </Grid>
+          <Box ref={gridRef} w="100%" h={isFullscreen ? '100vh' : 'auto'} overflow="auto" bg={bgColor} borderRadius={isFullscreen ? '0' : 'lg'} p={0} m={0} borderWidth={isFullscreen ? 0 : 1} borderColor={borderColor}>
+            <Box position="sticky" top={0} zIndex={2} bg={headerBg} boxShadow="sm" borderBottomWidth={1} borderColor={borderColor}>
+              <Grid
+                templateColumns={{ base: `100px repeat(${sortedDates.length}, 140px)`, md: `120px repeat(${sortedDates.length}, 220px)` }}
+                columnGap={0}
+                rowGap={0}
+                alignItems="center"
+                w="100%"
+                m={0}
+                p={0}
+                minW={{ base: `${sortedDates.length * 140 + 100}px`, md: `${sortedDates.length * 220 + 120}px` }}
+              >
+                <Box p={0} m={0}></Box>
+                {sortedDates.map(date => (
+                  <Box key={date} textAlign="center" fontWeight="bold" p={{ base: 1, md: 2 }} m={0} color={textColor} borderRightWidth={1} borderColor={borderColor} minH={{ base: '40px', md: '56px' }} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+                    <Text fontSize={{ base: 'sm', md: 'md' }}>
+                      {getPesoByDate(date) && (
+                        <Text as="span" fontSize={{ base: 'xs', md: 'sm' }} color={headerText} fontWeight="normal">{getPesoByDate(date)} - </Text>
+                      )}
+                      {date}
+                    </Text>
                   </Box>
-                  <Grid
-                    templateColumns={{ base: `100px repeat(${sortedDates.length}, 140px)`, md: `120px repeat(${sortedDates.length}, 220px)` }}
-                    columnGap={0}
-                    rowGap={{ base: '6px', md: '12px' }}
-                    alignItems="start"
-                    justifyItems="start"
-                    w="100%"
-                    m={0}
-                    p={0}
-                    minW={{ base: `${sortedDates.length * 140 + 100}px`, md: `${sortedDates.length * 220 + 120}px` }}
-                  >
-                    {ANGLES.map(({ value, label }) => [
-                      <Box key={label} fontWeight="bold" textAlign="right" pr={{ base: 1, md: 2 }} py={{ base: 1, md: 2 }} p={0} m={0} color={headerText} bg={headerBg} borderRightWidth={1} borderColor={borderColor} minH={{ base: '40px', md: '56px' }} display="flex" alignItems="center" justifyContent="flex-end" position="sticky" left={0} zIndex={1} fontSize={{ base: 'xs', md: 'sm' }}>
-                        <Text>{label}</Text>
-                      </Box>,
-                      ...sortedDates.map(date => {
-                        const photo = photosByDateAndAngle[date]?.[value];
-                        return (
-                          <Box key={date + value} p={0} m={0} textAlign="center" position="relative" height={{ base: '170px', md: '370px' }} width="100%" display="flex" alignItems="center" justifyContent="center" bg={bgColor} borderRightWidth={1} borderColor={borderColor}>
-                            {photo ? (
-                              <Image
-                                src={photo.url}
-                                alt={label}
-                                borderRadius="md"
-                                height={{ base: '150px', md: '350px' }}
-                                width="auto"
-                                maxWidth="100%"
-                                objectFit="contain"
-                                bg={bgColor}
-                                boxShadow="none"
-                                style={{ margin: 0, padding: 0, display: 'block', height: '100%', width: 'auto', maxWidth: '100%', border: 'none', boxShadow: 'none' }}
-                                cursor="zoom-in"
-                                onClick={() => {
-                                  setZoomPhoto(photo);
-                                  onOpen();
-                                }}
-                              />
-                            ) : (
-                              <Text color={headerText} fontSize={{ base: 'xs', md: 'sm' }}>-</Text>
-                            )}
-                          </Box>
-                        );
-                      })
-                    ])}
-                  </Grid>
-                </Box>
-              </TransformComponent>
-            </TransformWrapper>
+                ))}
+              </Grid>
+            </Box>
+            <Grid
+              templateColumns={{ base: `100px repeat(${sortedDates.length}, 140px)`, md: `120px repeat(${sortedDates.length}, 220px)` }}
+              columnGap={0}
+              rowGap={{ base: '6px', md: '12px' }}
+              alignItems="start"
+              justifyItems="start"
+              w="100%"
+              m={0}
+              p={0}
+              minW={{ base: `${sortedDates.length * 140 + 100}px`, md: `${sortedDates.length * 220 + 120}px` }}
+            >
+              {ANGLES.map(({ value, label }) => [
+                <Box key={label} fontWeight="bold" textAlign="right" pr={{ base: 1, md: 2 }} py={{ base: 1, md: 2 }} p={0} m={0} color={headerText} bg={headerBg} borderRightWidth={1} borderColor={borderColor} minH={{ base: '40px', md: '56px' }} display="flex" alignItems="center" justifyContent="flex-end" position="sticky" left={0} zIndex={1} fontSize={{ base: 'xs', md: 'sm' }}>
+                  <Text>{label}</Text>
+                </Box>,
+                ...sortedDates.map(date => {
+                  const photo = photosByDateAndAngle[date]?.[value];
+                  return (
+                    <Box key={date + value} p={0} m={0} textAlign="center" position="relative" height={{ base: '170px', md: '370px' }} width="100%" display="flex" alignItems="center" justifyContent="center" bg={bgColor} borderRightWidth={1} borderColor={borderColor}>
+                      {photo ? (
+                        <Image
+                          src={photo.url}
+                          alt={label}
+                          borderRadius="md"
+                          height={{ base: '150px', md: '350px' }}
+                          width="auto"
+                          maxWidth="100%"
+                          objectFit="contain"
+                          bg={bgColor}
+                          boxShadow="none"
+                          style={{ margin: 0, padding: 0, display: 'block', height: '100%', width: 'auto', maxWidth: '100%', border: 'none', boxShadow: 'none' }}
+                          cursor="zoom-in"
+                          onClick={() => {
+                            setZoomPhoto(photo);
+                            onOpen();
+                          }}
+                        />
+                      ) : (
+                        <Text color={headerText} fontSize={{ base: 'xs', md: 'sm' }}>-</Text>
+                      )}
+                    </Box>
+                  );
+                })
+              ])}
+            </Grid>
           </Box>
         )}
         {/* Modal de zoom */}
@@ -408,7 +393,7 @@ export default function ComparePhotosPage() {
             </Grid>
           </Box>
         </Box>
-      </VStack>
-    </Container>
+      </VStack >
+    </Container >
   );
 } 
