@@ -146,28 +146,31 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
             py={1}
           >
             <Flex gap={1}>
+              {/* Botão de Câmera/Arquivo Nativo - Essencial no Mobile, útil no Desktop */}
               <IconButton
-                aria-label="Substituir foto (Câmera/Galeria)"
+                aria-label="Câmera / Explorador"
                 icon={<AddIcon />}
                 size="xs"
                 colorScheme="teal"
                 onClick={(e) => {
                   e.stopPropagation();
-                  open(); // Reabre o seletor de arquivos (Dropzone)
+                  open(); // Reabre o seletor de arquivos
                 }}
               />
+              {/* Botão de Colar Foto (Clipboard) - Útil no Desktop, inútil no Mobile */}
               <IconButton
                 aria-label="Colar foto da área de transferência"
                 icon={<AttachmentIcon />}
                 size="xs"
                 colorScheme="green"
+                display={{ base: 'none', md: 'flex' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   openCropper(null, angle, date);
                 }}
               />
               <IconButton
-                aria-label="Editar foto"
+                aria-label="Editar/Cortar foto"
                 icon={<EditIcon />}
                 size="xs"
                 colorScheme="blue"
@@ -190,18 +193,37 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
           </VStack>
         </Box>
       ) : (
-        <Box position="relative" minH="80px" display="flex" alignItems="center" justifyContent="center">
-          <IconButton
-            aria-label="Inserir foto"
-            icon={<AddIcon />}
-            size="lg"
-            colorScheme="teal"
-            borderRadius="full"
-            onClick={(e) => {
-              e.stopPropagation();
-              open();
-            }}
-          />
+        <Box position="relative" minH="80px" display="flex" flexDirection="column" gap={2} alignItems="center" justifyContent="center">
+          <Flex gap={2}>
+            {/* Adicionar Foto (Câmera ou Explorador) */}
+            <IconButton
+              aria-label="Câmera ou Explorador"
+              icon={<AddIcon />}
+              size="md"
+              colorScheme="teal"
+              borderRadius="full"
+              onClick={(e) => {
+                e.stopPropagation();
+                open();
+              }}
+            />
+            {/* Colar Imagem (Clipboard) - Apenas Desktop */}
+            <IconButton
+              aria-label="Colar da Área de Transferência"
+              icon={<AttachmentIcon />}
+              size="md"
+              colorScheme="green"
+              borderRadius="full"
+              display={{ base: 'none', md: 'flex' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openCropper(null, angle, date);
+              }}
+            />
+          </Flex>
+          <Text fontSize="xs" color="gray.400" display={{ base: 'none', md: 'block' }}>
+            Upload ou Colar
+          </Text>
         </Box>
       )}
     </Box>
