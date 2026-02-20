@@ -547,7 +547,7 @@ export default function PhotosPage() {
       let sourceW = isCropped ? completedCrop.width * scaleX : imageRef.naturalWidth;
       let sourceH = isCropped ? completedCrop.height * scaleY : imageRef.naturalHeight;
 
-      const MAX_DIMENSION = 1024; // Compressão de tamanho de foto para padronização
+      const MAX_DIMENSION = 2048; // Qualidade aumentada a pedido do usuário pra evitar desfoque no zoom fullscreen
       let targetW = sourceW;
       let targetH = sourceH;
 
@@ -575,7 +575,7 @@ export default function PhotosPage() {
       );
 
       const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, 'image/jpeg', 0.85)
+        canvas.toBlob(resolve, 'image/jpeg', 0.95)
       );
 
       if (!blob) throw new Error('Falha ao extrair BLOB da imagem processada');
