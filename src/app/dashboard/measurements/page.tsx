@@ -433,13 +433,20 @@ export default function MeasurementsPage() {
   return (
     <Container maxW="container.xl" py={10}>
       <VStack spacing={8} align="stretch">
-        <Flex justify="space-between" align="center" mb={6}>
-          <Heading size="lg">Medições</Heading>
-          <HStack spacing={4}>
+        <Flex
+          direction={{ base: 'column', md: 'row' }}
+          justify="space-between"
+          align={{ base: 'stretch', md: 'center' }}
+          mb={6}
+          gap={4}
+        >
+          <Heading size={{ base: 'md', md: 'lg' }}>Medições</Heading>
+          <Flex direction={{ base: 'column', sm: 'row' }} gap={2}>
             <Button
               leftIcon={<AddIcon />}
               colorScheme="teal"
               onClick={handleNewMeasurement}
+              w={{ base: '100%', sm: 'auto' }}
             >
               Nova Medição
             </Button>
@@ -447,10 +454,11 @@ export default function MeasurementsPage() {
               leftIcon={<AddIcon />}
               colorScheme="teal"
               onClick={onGraphToggle}
+              w={{ base: '100%', sm: 'auto' }}
             >
               {isGraphOpen ? 'Ocultar Gráfico' : 'Visualizar Gráfico'}
             </Button>
-          </HStack>
+          </Flex>
         </Flex>
 
         <Box>

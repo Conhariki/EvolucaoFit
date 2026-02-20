@@ -913,12 +913,12 @@ export default function PhotosPage() {
     <Container maxW="container.xl" py={6}>
       <VStack spacing={4} align="stretch">
         <Box>
-          <Heading size="lg">Fotos</Heading>
-          <Text mt={1} color="gray.600">Acompanhe sua evolução visual</Text>
+          <Heading size={{ base: 'md', md: 'lg' }}>Fotos</Heading>
+          <Text mt={1} color="gray.600" display={{ base: 'none', md: 'block' }} fontSize="sm">Acompanhe sua evolução visual</Text>
         </Box>
-        <Flex align="center" gap={4}>
-          <FormControl maxW="200px" mb={0}>
-            <FormLabel>Data</FormLabel>
+        <Flex direction={{ base: 'column', md: 'row' }} align={{ base: 'stretch', md: 'flex-end' }} gap={4}>
+          <FormControl maxW={{ base: '100%', md: '200px' }} mb={0}>
+            <FormLabel fontSize={{ base: 'sm', md: 'md' }}>Data</FormLabel>
             <Input
               type="date"
               value={selectedDate}
@@ -927,8 +927,7 @@ export default function PhotosPage() {
           </FormControl>
           <Button
             colorScheme="teal"
-            ml={2}
-            alignSelf="flex-end"
+            w={{ base: '100%', md: 'auto' }}
             onClick={() => {
               if (!selectedDate) return;
               const [year, month, day] = selectedDate.split('-');

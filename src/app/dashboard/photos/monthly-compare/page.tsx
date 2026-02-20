@@ -30,6 +30,7 @@ import {
 } from '@chakra-ui/react';
 import axios from 'axios';
 import { useStudent } from '@/contexts/StudentContext';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 interface Photo {
   id: string;
@@ -389,19 +390,28 @@ export default function MonthlyComparePage() {
           <ModalOverlay />
           <ModalContent bg="black" maxW="90vw" maxH="90vh">
             <ModalCloseButton color="white" zIndex={2} />
-            <ModalBody display="flex" alignItems="center" justifyContent="center" p={0}>
+            <ModalBody display="flex" alignItems="center" justifyContent="center" p={0} overflow="hidden">
               {zoomPhoto && (
-                <Image
-                  src={zoomPhoto.url}
-                  alt={zoomPhoto.angle}
-                  maxW="90vw"
-                  maxH="80vh"
-                  objectFit="contain"
-                  mx="auto"
-                  borderRadius="md"
-                  boxShadow="lg"
-                  bg="black"
-                />
+                <TransformWrapper
+                  initialScale={1}
+                  minScale={0.5}
+                  maxScale={8}
+                  centerOnInit={true}
+                >
+                  <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%", height: "100%" }}>
+                    <Image
+                      src={zoomPhoto.url}
+                      alt={zoomPhoto.angle}
+                      maxW="90vw"
+                      maxH="80vh"
+                      objectFit="contain"
+                      mx="auto"
+                      borderRadius="md"
+                      boxShadow="lg"
+                      bg="black"
+                    />
+                  </TransformComponent>
+                </TransformWrapper>
               )}
             </ModalBody>
           </ModalContent>

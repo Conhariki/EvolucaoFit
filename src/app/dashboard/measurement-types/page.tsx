@@ -21,6 +21,7 @@ import {
   Td,
   IconButton,
   useDisclosure,
+  Flex,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -188,11 +189,17 @@ export default function MeasurementTypesPage() {
   return (
     <Container maxW="container.xl" py={6}>
       <VStack spacing={6} align="stretch">
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Heading size="lg">Cadastro de Medidas</Heading>
+        <Flex
+          direction={{ base: 'column', md: 'row' }}
+          justify="space-between"
+          align={{ base: 'stretch', md: 'center' }}
+          gap={4}
+        >
+          <Heading size={{ base: 'md', md: 'lg' }}>Cadastro de Medidas</Heading>
           <Button
             leftIcon={<AddIcon />}
             colorScheme="blue"
+            w={{ base: '100%', sm: 'auto' }}
             onClick={() => {
               setEditingId(null);
               setFormData({ name: '', description: '' });
@@ -201,7 +208,7 @@ export default function MeasurementTypesPage() {
           >
             Adicionar Medida
           </Button>
-        </Box>
+        </Flex>
 
         <Box bg={bgColor} borderRadius="lg" boxShadow="sm" p={4} borderWidth="1px" borderColor={borderColor}>
           <Table variant="simple">
