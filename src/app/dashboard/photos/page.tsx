@@ -157,6 +157,16 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
                 }}
               />
               <IconButton
+                aria-label="Colar foto da área de transferência"
+                icon={<AttachmentIcon />}
+                size="xs"
+                colorScheme="green"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openCropper(null, angle, date);
+                }}
+              />
+              <IconButton
                 aria-label="Editar foto"
                 icon={<EditIcon />}
                 size="xs"
