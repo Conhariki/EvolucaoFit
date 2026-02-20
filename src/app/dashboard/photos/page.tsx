@@ -92,12 +92,18 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
     },
   });
 
-  // Para permitir Câmera e Galeria misturados nativamente, removemos o atributo `capture`
-  // do input HTML final se ele existir, mas mantemos os accepts do Dropzone originais.
-  const inputProps = getInputProps();
-  if (inputProps.capture) {
-    delete inputProps.capture;
-  }
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleNativeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.target.files && e.target.files.length > 0) {
+      openCropper(e.target.files[0], angle, date);
+    }
+    // Clean input to allow re-selection of the same file
+    e.target.value = '';
+  };
+
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -119,7 +125,24 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
         },
       }}
     >
-      <input {...inputProps} accept="image/*" capture={undefined} />
+      <input {...getInputProps()} />
+      {/* Inputs nativos escondidos fora do gerenciamento do React Dropzone para resolver bloqueios do Safari iOS */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={cameraInputRef}
+        style={{ display: 'none' }}
+        onChange={handleNativeInput}
+      />
+      <input
+        type="file"
+        accept="image/*"
+        ref={galleryInputRef}
+        style={{ display: 'none' }}
+        onChange={handleNativeInput}
+      />
+
       {photo ? (
         <Box position="relative">
           <Image
@@ -148,15 +171,27 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
             py={1}
           >
             <Flex gap={1}>
-              {/* Botão de Câmera/Arquivo Nativo - Essencial no Mobile, útil no Desktop */}
+              {/* Câmera Tirar Foto - Mobile only */}
               <IconButton
-                aria-label="Câmera / Explorador"
+                aria-label="Tirar Foto com a Câmera"
                 icon={<AddIcon />}
                 size="xs"
                 colorScheme="teal"
+                display={{ base: 'flex', md: 'none' }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  open(); // Reabre o seletor de arquivos
+                  cameraInputRef.current?.click();
+                }}
+              />
+              {/* Escolher da Galeria / Desktop Explorador */}
+              <IconButton
+                aria-label="Explorador / Galeria"
+                icon={<AttachmentIcon transform="rotate(270deg)" />} // Generic File Icon Substitute
+                size="xs"
+                colorScheme="blue"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  galleryInputRef.current?.click();
                 }}
               />
               {/* Botão de Colar Foto (Clipboard) - Útil no Desktop, inútil no Mobile */}
@@ -197,16 +232,29 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
       ) : (
         <Box position="relative" minH="80px" display="flex" flexDirection="column" gap={2} alignItems="center" justifyContent="center">
           <Flex gap={2}>
-            {/* Adicionar Foto (Câmera ou Explorador) */}
+            {/* Tirar Foto Câmera (Mobile) */}
             <IconButton
-              aria-label="Câmera ou Explorador"
+              aria-label="Tirar Foto"
               icon={<AddIcon />}
               size="md"
               colorScheme="teal"
               borderRadius="full"
+              display={{ base: 'flex', md: 'none' }}
               onClick={(e) => {
                 e.stopPropagation();
-                open();
+                cameraInputRef.current?.click();
+              }}
+            />
+            {/* Escolher Explorador/Galeria */}
+            <IconButton
+              aria-label="Galeria ou Explorador de Arquivos"
+              icon={<AttachmentIcon transform="rotate(270deg)" />}
+              size="md"
+              colorScheme="blue"
+              borderRadius="full"
+              onClick={(e) => {
+                e.stopPropagation();
+                galleryInputRef.current?.click();
               }}
             />
             {/* Colar Imagem (Clipboard) - Apenas Desktop */}
