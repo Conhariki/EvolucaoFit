@@ -27,6 +27,7 @@ import { HamburgerIcon, CloseIcon, MoonIcon, SunIcon } from '@chakra-ui/icons';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { useStudent } from '@/contexts/StudentContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface NavLinkProps {
   children: React.ReactNode;
@@ -58,7 +59,7 @@ export default function DashboardLayout({
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { colorMode, toggleColorMode } = useColorMode();
+  const { isDarkMode, toggleTheme } = useTheme();
   const { selectedStudentId, students, setSelectedStudentId } = useStudent();
   const bgMain = useColorModeValue('gray.50', 'gray.900');
   const bgHeader = useColorModeValue('white', 'gray.800');
@@ -127,8 +128,8 @@ export default function DashboardLayout({
             )}
             <IconButton
               aria-label="Alternar tema"
-              icon={colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
-              onClick={toggleColorMode}
+              icon={isDarkMode ? <SunIcon /> : <MoonIcon />}
+              onClick={toggleTheme}
               variant="ghost"
               size="lg"
               mr={2}

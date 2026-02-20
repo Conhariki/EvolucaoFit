@@ -112,7 +112,7 @@ function PhotoCell({ photo, angle, date, onUpload, onEdit, onDelete, openCropper
         },
       }}
     >
-      <input {...getInputProps({ capture: 'environment' } as any)} />
+      <input {...getInputProps()} />
       {photo ? (
         <Box position="relative">
           <Image
@@ -441,44 +441,50 @@ export default function PhotosPage() {
     try {
       let fileToUpload: File;
 
-      // Se houver recorte válido, processa o canvas
-      if (completedCrop && imageRef && completedCrop.width && completedCrop.height) {
-        const canvas = document.createElement('canvas');
-        const scaleX = imageRef.naturalWidth / imageRef.width;
-        const scaleY = imageRef.naturalHeight / imageRef.height;
-        canvas.width = completedCrop.width * scaleX;
-        canvas.height = completedCrop.height * scaleY;
-        const ctx = canvas.getContext('2d');
+      if (!imageRef) throw new Error('Imagem não carregada no modal');
 
-        if (!ctx) {
-          toast({ title: 'Erro', description: 'Falha ao processar recorte', status: 'error' });
-          return;
+      const isCropped = completedCrop && completedCrop.width > 0 && completedCrop.height > 0;
+      const scaleX = imageRef.naturalWidth / imageRef.width;
+      const scaleY = imageRef.naturalHeight / imageRef.height;
+
+      let sourceX = isCropped ? completedCrop.x * scaleX : 0;
+      let sourceY = isCropped ? completedCrop.y * scaleY : 0;
+      let sourceW = isCropped ? completedCrop.width * scaleX : imageRef.naturalWidth;
+      let sourceH = isCropped ? completedCrop.height * scaleY : imageRef.naturalHeight;
+
+      const MAX_DIMENSION = 1024; // Compressão de tamanho de foto para padronização
+      let targetW = sourceW;
+      let targetH = sourceH;
+
+      if (Math.max(sourceW, sourceH) > MAX_DIMENSION) {
+        if (sourceW > sourceH) {
+          targetH = Math.round((sourceH * MAX_DIMENSION) / sourceW);
+          targetW = MAX_DIMENSION;
+        } else {
+          targetW = Math.round((sourceW * MAX_DIMENSION) / sourceH);
+          targetH = MAX_DIMENSION;
         }
-
-        ctx.drawImage(
-          imageRef,
-          completedCrop.x * scaleX,
-          completedCrop.y * scaleY,
-          completedCrop.width * scaleX,
-          completedCrop.height * scaleY,
-          0,
-          0,
-          completedCrop.width * scaleX,
-          completedCrop.height * scaleY
-        );
-
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, 'image/jpeg', 0.95)
-        );
-
-        if (!blob) throw new Error('Falha ao criar imagem');
-        fileToUpload = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
-      } else {
-        // Se não houver recorte, usa a imagem original
-        const response = await fetch(cropImage);
-        const blob = await response.blob();
-        fileToUpload = new File([blob], 'original.jpg', { type: 'image/jpeg' });
       }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) throw new Error('Contexto 2D não suportado');
+
+      ctx.drawImage(
+        imageRef,
+        sourceX, sourceY, sourceW, sourceH,
+        0, 0, targetW, targetH
+      );
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.85)
+      );
+
+      if (!blob) throw new Error('Falha ao extrair BLOB da imagem processada');
+      fileToUpload = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
 
       // Fecha modal e limpa estados
       setCropModalOpen(false);
@@ -1031,6 +1037,7 @@ export default function PhotosPage() {
                   <img
                     src={cropImage}
                     alt="Crop preview"
+                    crossOrigin="anonymous"
                     style={{ maxWidth: '100%', maxHeight: '400px' }}
                     onLoad={e => setImageRef(e.currentTarget)}
                   />
